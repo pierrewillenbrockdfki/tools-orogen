@@ -632,6 +632,10 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
                 needs_global_initializer?(:qt)
             end
 
+            def uses_qt5?
+                needs_global_initializer?(:qt5)
+            end
+
             @available_global_initializers = Set.new
 
             # Register the existence of a global initializer

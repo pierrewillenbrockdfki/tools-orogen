@@ -203,6 +203,14 @@ module OroGen
                 needs_global_initializer?(:qt)
             end
 
+            def use_qt5
+                needs_global_initializer(:qt5)
+            end
+
+            def uses_qt5?
+                needs_global_initializer?(:qt5)
+            end
+
             # Specifies that deployments that use this task must run a global
             # initializer in the global main
             #

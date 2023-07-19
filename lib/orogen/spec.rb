@@ -23,6 +23,7 @@ require "orogen/spec/task_context"
 require "orogen/spec/deployment"
 
 OroGen::Spec::Deployment.register_global_initializer(:qt)
+OroGen::Spec::Deployment.register_global_initializer(:qt5)
 
 require "orogen/spec/typekit"
 require "orogen/spec/project"
