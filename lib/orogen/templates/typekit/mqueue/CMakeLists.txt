@@ -28,6 +28,10 @@ target_link_libraries(${libname_mqueue}
     ${OROCOS-RTT_MQUEUE_LIBRARIES}
     ${RTT_Typelib_LIBRARIES})
 
+<% if typekit.cxx_standard %>
+target_compile_features(${libname_mqueue} PUBLIC <%= typekit.cxx_standard.sub(/^(c|gnu)\+\+/, "cxx_std_") %>)
+<% end %>
+
 <%= Generation.cmake_pkgconfig_link('mqueue', '${libname_mqueue}', typekit_deps) %>
 
 SET(PKG_CONFIG_FILE_MQueue ${CMAKE_CURRENT_BINARY_DIR}/<%= typekit.name %>-transport-mqueue-${OROCOS_TARGET}.pc)

@@ -29,6 +29,10 @@ target_link_libraries(${libname_typelib}
     <%= typekit.name %>-typekit-${OROCOS_TARGET}
     <% end %>)
 
+<% if typekit.cxx_standard %>
+target_compile_features(${libname_typelib} PUBLIC <%= typekit.cxx_standard.sub(/^(c|gnu)\+\+/, "cxx_std_") %>)
+<% end %>
+
 <%= Generation.cmake_pkgconfig_link('typelib', '${libname_typelib}', typekit_deps) %>
 
 # rospack support: if we're a ROS package, use rospack to return the location of our .tlb file.

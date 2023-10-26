@@ -55,6 +55,10 @@ endif()
 set_target_properties(${libname_corba} PROPERTIES LINK_INTERFACE_LIBRARIES ${OrocosCORBA_LIBRARIES})
 set_target_properties(${libname_corba} PROPERTIES INTERFACE_LINK_LIBRARIES ${OrocosCORBA_LIBRARIES})
 
+<% if typekit.cxx_standard %>
+target_compile_features(${libname_corba} PUBLIC <%= typekit.cxx_standard.sub(/^(c|gnu)\+\+/, "cxx_std_") %>)
+<% end %>
+
 SET(PKG_CONFIG_FILE_CORBA ${CMAKE_CURRENT_BINARY_DIR}/<%= typekit.name %>-transport-corba-${OROCOS_TARGET}.pc)
 CONFIGURE_FILE(<%= typekit.name %>-transport-corba.pc.in ${PKG_CONFIG_FILE_CORBA} @ONLY)
 

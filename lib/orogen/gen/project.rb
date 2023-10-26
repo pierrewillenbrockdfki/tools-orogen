@@ -524,7 +524,8 @@ module OroGen
                     if has_typekit?(name)
                         using_typekit name
                     else
-                        typekit(true).load name, true, *args
+                        typekit(true).cxx_standard = cxx_standard
+                        typekit.load name, true, *args
                     end
                 rescue LoadError
                     raise TypeImportError.new(name), "cannot find typekit or file #{name}. If this is supposed to be a header, the following include path was used: #{typekit.include_dirs.to_a.join(":")}"
@@ -1112,6 +1113,89 @@ module OroGen
                     tasks[new_task.name] = new_task
                     self_tasks << new_task
                     new_task
+                end
+
+                # Sets the c++ standard to be used when parsing headers using
+                # import_types_from. The standard should be a compiler flag
+                # without the -std= prefix. nil will clear the set standard.
+                dsl_attribute :cxx_standard
+
+                # maps the various c++ standards to what look like years but
+                # actually are just numbers used for ordering. Higher numbers
+                # contain more/newer features
+                CXX_STANDARD_MAP = {
+                    "c++98" => 2003,
+                    "c++03" => 2003,
+                    "gnu++98" => 2010,
+                    "gnu++03" => 2010,
+                    "c++11" => 2011,
+                    "c++0x" => 2011,
+                    "gnu++11" => 2013,
+                    "gnu++0x" => 2013,
+                    "c++14" => 2014,
+                    "c++1y" => 2014,
+                    "gnu++14" => 2016,
+                    "gnu++1y" => 2016,
+                    "c++17" => 2017,
+                    "c++1z" => 2017,
+                    "gnu++17" => 2019,
+                    "gnu++1z" => 2019,
+                    "c++20" => 2020,
+                    "c++2a" => 2020,
+                    "gnu++20" => 2022,
+                    "gnu++2a" => 2022,
+                    "c++23" => 2023,
+                    "c++2b" => 2023,
+                    "gnu++23" => 2024,
+                    "gnu++2b" => 2024
+                }
+
+                # maps the various c++ standards to a number for ordering
+                # by feature content. Unknown c++ standards are treated as
+                # having maximum features.
+                #
+                # @param stdstring [String] A compiler flag, without -std=
+                #                           prefix
+                # @return [Integer]         A number enabling ordering of
+                #                           the given standard relative to
+                #                           other standards
+                def cxx_standard_ordering_number(stdstring)
+                    CXX_STANDARD_MAP[stdstring] || 9999
+                end
+
+                # Calculates the  maximum/most recent c++ standard from the
+                # arguments. These must be compiler flags without the
+                # "-std=" prefix. Any unknown standards are treated as most
+                # recent and equal.
+                # returns nil if there are no arguments.
+                #
+                # @param *args [Array...<String>]  A number of strings that
+                #              are compiler standard flags without -std= prefix
+                # @return [String] A compiler flag without -std= prefix or nil
+                #              if there are no arguments
+                def maximum_cxx_standard(*args)
+                    args.flatten.max do |a, b|
+                        cxx_standard_ordering_number(a) <=> cxx_standard_ordering_number(b)
+                    end
+                end
+
+                # Returns the maximum c++ standard from the current set of
+                # libraries registered through using_library. May be nil.
+                #
+                # Example:
+                #   cxx_standard max_library_cxx_standard
+                #
+                # @param *args [Array...<String>]  A number of strings that
+                #              are compiler standard flags without -std= prefix
+                # @return [String] A compiler flag without -std= prefix or nil
+                #              if there are no arguments
+                def maximum_library_cxx_standard(*args)
+                    all_cflags = used_libraries
+                                 .map(&:raw_cflags_only_other)
+                                 .flatten.uniq
+                    all_stdcxxflags = all_cflags.select { |flag| flag =~ /^-std=.*\+\+/ }
+                    maximum_cxx_standard args.flatten,
+                                         (all_stdcxxflags.map { |flag| flag.sub(/^-std=/, "") })
                 end
 
                 # Loads the oroGen project +name+

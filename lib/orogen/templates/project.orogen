@@ -23,4 +23,9 @@ using_typekit "<%= tk.name %>"
 
 <%= File.read(project.deffile) %>
 
+<% if project.cxx_standard %>
+# override the c++ standard with the final result at generation time
+cxx_standard = "<%= project.cxx_standard %>"
+<% end %>
+
 Spec::TaskContext.pop_default_extensions_state

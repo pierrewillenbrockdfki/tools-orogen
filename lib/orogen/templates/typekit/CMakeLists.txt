@@ -109,6 +109,9 @@ if(WITH_RPATH AND APPLE)
     INSTALL_NAME_DIR "@rpath")
     SET(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 endif()
+<% if typekit.cxx_standard %>
+target_compile_features(${libname} PUBLIC <%= typekit.cxx_standard.sub(/^(c|gnu)\+\+/, "cxx_std_") %>)
+<% end %>
 set(PKG_CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/<%= typekit.name %>-typekit-${OROCOS_TARGET}.pc)
 configure_file(<%= typekit.name %>-typekit.pc.in ${PKG_CONFIG_FILE} @ONLY)
 

@@ -882,6 +882,10 @@ module OroGen
                 # pkg-config file
                 attr_reader :loaded_files_dirs
 
+                # The c++ standard selected by the user or nil. Should be of the
+                # form "c++17", i.E. the compiler flag without "-std=" prepended
+                attr_accessor :cxx_standard
+
                 def initialize(project = nil)
                     @project = project
 
@@ -914,6 +918,8 @@ module OroGen
                     #
                     # In other words, keep pending_loads an array
                     @pending_loads        = Array.new
+
+                    @cxx_standard = nil
 
                     type_export_policy :all
                     @selected_types = Set.new
@@ -1261,9 +1267,19 @@ module OroGen
                     include_path = include_dirs.map { |d| Pathname.new(d) }
                     inc = resolve_full_include_path_to_relative(file, include_path)
                     included_files << inc
-                    user_options[:rawflags] = used_libraries
-                                              .map(&:raw_cflags_only_other)
-                                              .flatten.uniq
+                    all_cflags = used_libraries
+                                 .map(&:raw_cflags_only_other)
+                                 .flatten.uniq
+                    (all_stdcxxflags, all_other_flags) = all_cflags.partition { |flag| flag =~ /^-std=.*\+\+/ }
+                    user_options[:rawflags] = all_other_flags
+                    if cxx_standard
+                        user_options[:rawflags].push "-std=#{cxx_standard}"
+                    else
+                        if all_stdcxxflags.length > 1
+                            RTT_CPP.warn "While loading library #{file}, found conflicting c++ standard requirements(#{all_stdcxxflags.join(", ")}). please specify a desired standard in the .orogen file using cxx_standard \"c++xy\", or calculate one from the used libraries: cxx_standard maximum_library_cxx_standard"
+                        end
+                        user_options[:rawflags].concat all_stdcxxflags
+                    end
 
                     this_options = [add, user_options]
                     if pending_load_options != this_options
