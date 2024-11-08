@@ -383,7 +383,7 @@ module OroGen
             # Helper method used to create a symbolic link. If a link already
             # exists, it makes sure that it is up to date
             def self.create_or_update_symlink(source, target)
-                if File.exists?(target)
+                if File.exist?(target)
                     unless File.symlink?(target)
                         raise ConfigError, "#{target} was expected to be a symbolic link, but is not"
                     end
