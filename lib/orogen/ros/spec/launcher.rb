@@ -129,7 +129,7 @@ module OroGen
                 #     loaded
                 #
                 def parse(path)
-                    if File.exists?(path)
+                    if File.exist?(path)
                         @node_descriptors = Launcher.parse(path)
                         @node_descriptors.each do |d|
                             node(d.name, "#{d.package}::#{d.type}")
@@ -160,7 +160,7 @@ module OroGen
                 # Parses a given launch file and extracts the launch information
                 # @return [Set<Spec::XML::NodeDescription>] Extract all nodes from a launch file
                 def self.parse(filename)
-                    unless File.exists?(filename)
+                    unless File.exist?(filename)
                         raise ArgumentError, "#{self}: could not find file '#{filename}'"
                     end
 

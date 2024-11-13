@@ -33,7 +33,7 @@ describe OroGen::Loaders::PkgConfig do
     def stub_orogen_pkgconfig(name, task_models = Array.new, deployed_tasks = Array.new)
         deffile = File.join(fixtures_prefix, "deffile", "base.orogen")
         type_registry = File.join(fixtures_prefix, "typekit", "#{name}.tlb")
-        type_registry = nil unless File.exists?(type_registry)
+        type_registry = nil unless File.exist?(type_registry)
         pkg = flexmock(
             :project_name => name,
             :deffile => deffile,

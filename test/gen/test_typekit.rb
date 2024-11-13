@@ -160,7 +160,7 @@ install(TARGETS test RUNTIME DESTINATION bin)
         end
 
         # The simple.h header should be installed in orocos/typekit/simple.h
-        assert File.exists?(File.join(prefix_directory, "include", "orocos", "simple", "simple.h"))
+        assert File.exist?(File.join(prefix_directory, "include", "orocos", "simple", "simple.h"))
 
         # check_output_file('modules/typekit_simple', 'basic.cpf')
         # check_output_file('modules/typekit_simple', 'basic.xml')
