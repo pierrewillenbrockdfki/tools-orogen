@@ -149,6 +149,65 @@ void sigint_quit_orb(int)
 	sent += ret;
     }
 }
+
+void wait_for_termination(int fd){
+    while (!exiting) {
+        char dummy;
+        int read_count = read(fd, &dummy, sizeof(dummy));
+        if (read_count == 1) {
+            exiting = true;
+        }
+    }
+    return;
+}
+
+bool setup_sigint_handler() {
+    /** Setup shutdown procedure on SIGINT. We use a pipe-based channel to do
+        so, as we can't shutdown the ORB from the signal handler */
+    if (pipe(sigint_com) == -1)
+    {
+        std::cerr << "failed to setup SIGINT/SIGTERM/SIGQUIT/SIGHUP communication pipe: " << strerror(errno) << std::endl;
+        return false;
+    }
+
+    struct sigaction sigint_handler;
+    memset(&sigint_handler, 0, sizeof(sigint_handler));
+    sigint_handler.sa_handler = &sigint_quit_orb;
+    sigemptyset(&sigint_handler.sa_mask);
+    if (-1 == sigaction(SIGINT, &sigint_handler, 0))
+    {
+        std::cerr << "failed to install SIGINT handler" << std::endl;
+        return false;
+    }
+    if (-1 == sigaction(SIGTERM, &sigint_handler, 0))
+    {
+        std::cerr << "failed to install SIGTERM handler" << std::endl;
+        return false;
+    }
+    if (-1 == sigaction(SIGQUIT, &sigint_handler, 0))
+    {
+        std::cerr << "failed to install SIGQUIT handler" << std::endl;
+        return false;
+    }
+    if (-1 == sigaction(SIGHUP, &sigint_handler, 0))
+    {
+        std::cerr << "failed to install SIGHUP handler" << std::endl;
+        return false;
+    }
+    sigset_t unblock_sigint;
+    sigemptyset(&unblock_sigint);
+    sigaddset(&unblock_sigint, SIGINT);
+    sigaddset(&unblock_sigint, SIGTERM);
+    sigaddset(&unblock_sigint, SIGQUIT);
+    sigaddset(&unblock_sigint, SIGHUP);
+    if (-1 == sigprocmask(SIG_UNBLOCK, &unblock_sigint, NULL))
+    {
+        std::cerr << "failed to unblock SIGINT/SIGTERM/SIGQUIT/SIGHUP handler" << std::endl;
+        return false;
+    }
+
+    return true;
+}
 <% end %>
 
 void *oro_thread(void *p){
@@ -175,7 +234,9 @@ int ORO_main(int argc, char* argv[])
 <% end %>
         ("with-ros", po::value<bool>()->default_value(false), "also publish the task as ROS node, default is false")
         ("rename", po::value< std::vector<std::string> >(), "rename a task of the deployment: --rename oldname:newname")
-        ("ior-write-fd", po::value<int>(), "the write file descriptor of the ior pipe");
+        ("ior-write-fd", po::value<int>(), "the write file descriptor of the ior pipe")
+        ("register-on-name-server", po::value<bool>()->default_value(true), "whether the tasks should be registered on the default CORBA naming service")
+        ("control-fd", po::value<int>(), "the read file descriptor of the control pipe");
 
    po::variables_map vm;
    po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -216,7 +277,10 @@ int ORO_main(int argc, char* argv[])
    <% end %>
 
 <% if deployer.corba_enabled? %>
-    RTT::corba::ApplicationServer::InitOrb(argc, argv);
+    if (!RTT::corba::ApplicationServer::InitOrb(argc, argv)) {
+        std::cerr << "Failed to initialize the ORB" << std::endl;
+        return 1;
+    }
 <% end %>
 
     std::string prefix = "";
@@ -224,10 +288,8 @@ int ORO_main(int argc, char* argv[])
     if( vm.count("prefix"))
         prefix = vm["prefix"].as<std::string>();
 
-    bool with_ros = false;
-
-    if( vm.count("with-ros"))
-	with_ros = vm["with-ros"].as<bool>();
+    bool with_ros = vm["with-ros"].as<bool>();
+    bool use_naming = vm["register-on-name-server"].as<bool>();
 
     std::string task_name;
 
@@ -287,7 +349,7 @@ RTT::internal::GlobalEngine::Instance(ORO_SCHED_OTHER, RTT::os::LowestPriority);
 #endif
 
     <% if deployer.corba_enabled? %>
-    RTT::corba::TaskContextServer::Create( task_<%= task.name %>.get() );
+    RTT::corba::TaskContextServer::Create( task_<%= task.name %>.get(), use_naming );
     <% if task.realtime? %>
 #if RTT_VERSION_GTE(2,8,99)
     task_<%= task.name %>.get()->addConstant<int>("CorbaDispatcherScheduler", ORO_SCHED_RT);
@@ -406,30 +468,10 @@ RTT::internal::GlobalEngine::Instance(ORO_SCHED_OTHER, RTT::os::LowestPriority);
     }
 
 <% if deployer.corba_enabled? %>
-    /** Setup shutdown procedure on SIGINT. We use a pipe-based channel to do
-        so, as we can't shutdown the ORB from the signal handler */
-    if (pipe(sigint_com) == -1)
-    {
-        std::cerr << "failed to setup SIGINT handler: " << strerror(errno) << std::endl;
-        return 1;
-    }
-
-    struct sigaction sigint_handler;
-    memset(&sigint_handler, 0, sizeof(sigint_handler));
-    sigint_handler.sa_handler = &sigint_quit_orb;
-    sigemptyset(&sigint_handler.sa_mask);
-    if (-1 == sigaction(SIGINT, &sigint_handler, 0))
-    {
-        std::cerr << "failed to install SIGINT handler" << std::endl;
-        return 1;
-    }
-    sigset_t unblock_sigint;
-    sigemptyset(&unblock_sigint);
-    sigaddset(&unblock_sigint, SIGINT);
-    if (-1 == sigprocmask(SIG_UNBLOCK, &unblock_sigint, NULL))
-    {
-        std::cerr << "failed to install SIGINT handler" << std::endl;
-        return 1;
+    if (!vm.count("control-fd")) {
+        if (!setup_sigint_handler()) {
+            return 1;
+        }
     }
 
     <% if has_realtime %>
@@ -448,13 +490,24 @@ RTT::internal::GlobalEngine::Instance(ORO_SCHED_OTHER, RTT::os::LowestPriority);
 
         message_ostream << "{";
     <% activity_ordered_tasks.each do |task| %>
-        ior = RTT::corba::TaskContextServer::getIOR(task_<%= task.name %>.get());
-        message_ostream << "\"" << task_<%= task.name %>.get()->getName() << "\": \"" << ior << "\"";
+        {
+            auto task = task_<%= task.name %>.get();
+            std::string ior = RTT::corba::TaskContextServer::getIOR(task);
+            std::string name = task->getName();
+            if (ior.empty()) {
+                std::cerr
+                    << "internal error: task " << name << " has not registered its IOR"
+                    << std::endl;
+                return 1;
+            }
+
+            message_ostream << "\"" << name << "\": \"" << ior << "\"";
+        }
     <% if task != activity_ordered_tasks.last %>
         message_ostream << ",";
     <% end %>
     <% end %>
-        message_ostream << "}";
+        message_ostream << "}\n";
         std::string message = message_ostream.str();
         while (write_result < static_cast<int>(message.length())) {
             message.erase(0, write_result);
@@ -468,9 +521,14 @@ RTT::internal::GlobalEngine::Instance(ORO_SCHED_OTHER, RTT::os::LowestPriority);
         close(ior_write);
     }
 
-    oro_thread(NULL);
+    if (vm.count("control-fd")) {
+        wait_for_termination(vm["control-fd"].as<int>());
+    }
+    else {
+        wait_for_termination(sigint_com[0]);
+    }
 
-    RTT::corba::TaskContextServer::ShutdownOrb();
+    RTT::corba::TaskContextServer::ShutdownOrb(true);
     RTT::corba::TaskContextServer::DestroyOrb();
 <% elsif deployer.browse %>
     OCL::TaskBrowser browser(task_<%= deployer.browse.name %>.get());

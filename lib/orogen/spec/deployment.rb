@@ -288,7 +288,7 @@ module OroGen
             end
 
             def periodic?
-                activity_type.name == "Triggered" && period != 0
+                activity_type.name == "Periodic" && period != 0
             end
 
             def fd_driven?
@@ -424,10 +424,8 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
                 self
             end
 
-            def slave_of(master)
+            def slave
                 activity_type "SlaveActivity", "RTT::extras::SlaveActivity", "rtt/extras/SlaveActivity.hpp"
-                self.master = master
-                master.slaves << self
                 activity_setup do
                     <<-EOD
 #{activity_type.class_name}* activity_#{name} = new #{activity_type.class_name}(activity_#{master.name},task_#{name}->engine());
@@ -436,6 +434,17 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
                 activity_xml do
                     "<struct name=\"#{name}\" type=\"SlaveActivity\" />"
                 end
+
+                self
+            end
+
+            def slave_of(master)
+                slave
+
+                self.master = master
+                master.slaves << self
+
+                self
             end
 
             def activity_setup(&block)
