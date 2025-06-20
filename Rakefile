@@ -7,23 +7,21 @@ require "bundler/gem_tasks"
 require "rake/testtask"
 
 task :setup do
-    begin
-        require "typelib"
-        require "orogen"
-    rescue ScriptErrors => e
-        warn <<~MESSAGE
-            cannot load oroGen
-            - did you install Typelib\'s Ruby bindings and update the RUBYLIB environment
-            variable accordingly ?
-            - did you add #{File.expand_path('lib', __dir__)} to RUBYLIB ?
+    require "typelib"
+    require "orogen"
+rescue ScriptErrors => e
+    warn <<~MESSAGE
+        cannot load oroGen
+        - did you install Typelib\'s Ruby bindings and update the RUBYLIB environment
+        variable accordingly ?
+        - did you add #{File.expand_path('lib', __dir__)} to RUBYLIB ?
 
-            The error is: #{e.message}
-        MESSAGE
-        e.backtrace.each do |line|
-            warn "  #{line}"
-        end
-        exit(1)
+        The error is: #{e.message}
+    MESSAGE
+    e.backtrace.each do |line|
+        warn "  #{line}"
     end
+    exit(1)
 end
 
 task default: :setup

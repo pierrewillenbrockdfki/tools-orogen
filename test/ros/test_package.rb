@@ -21,6 +21,7 @@ module ROSLoaderTestSetup
     end
 
     attr_reader :loader
+
     def setup
         @loader = create_ros_loader
         super
@@ -77,10 +78,14 @@ describe OroGen::ROS::Spec::Package do
 
     describe "normalize_name" do
         it "should normalize names to their full path" do
-            assert_equal "/test", OroGen::ROS.normalize_name("test"), "Node name normalization"
-            assert_equal "/test", OroGen::ROS.normalize_name("//test"), "Node name normalization"
-            assert_equal "/test", OroGen::ROS.normalize_topic_name("////test"), "Topic name normalization"
-            assert_equal "/test", OroGen::ROS.normalize_topic_name("test"), "Topic name normalization"
+            assert_equal "/test", OroGen::ROS.normalize_name("test"),
+                         "Node name normalization"
+            assert_equal "/test", OroGen::ROS.normalize_name("//test"),
+                         "Node name normalization"
+            assert_equal "/test", OroGen::ROS.normalize_topic_name("////test"),
+                         "Topic name normalization"
+            assert_equal "/test", OroGen::ROS.normalize_topic_name("test"),
+                         "Topic name normalization"
         end
     end
 

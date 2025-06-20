@@ -7,16 +7,8 @@ module OroGen
         # Typekits provide (at model time) definitions of types, and (at
         # runtime) the support to marshal/unmarshal them on transports
         class Typekit
-            attr_reader :loader
-            attr_reader :name
-            attr_reader :registry
-            attr_reader :typelist
-            attr_reader :interface_typelist
-
-            attr_reader :opaques
-            attr_reader :opaque_registry
-
-            attr_reader :imported_typekits
+            attr_reader :loader, :name, :registry, :typelist, :interface_typelist,
+                        :opaques, :opaque_registry, :imported_typekits
 
             attr_predicate :define_dummy_types?, true
 
@@ -33,17 +25,15 @@ module OroGen
                     # /unsigned char[8]
                     # /unsigned char[8] 0
                     if decl =~ /^(.*) (\d)$/
-                        type = $1
-                        is_interface = ($2 == "1")
+                        type = ::Regexp.last_match(1)
+                        is_interface = (::Regexp.last_match(2) == "1")
                     else
                         type = decl
                         is_interface = true
                     end
 
                     typekit_typelist << type
-                    if is_interface
-                        typekit_interface_typelist << type
-                    end
+                    typekit_interface_typelist << type if is_interface
                 end
                 [typekit_typelist, typekit_interface_typelist]
             end
@@ -55,7 +45,7 @@ module OroGen
                 def initialize(typekit_registry)
                     @registry = Typelib::Registry.new
                     @typekit_registry = typekit_registry
-                    @opaques = Array.new
+                    @opaques = []
                 end
 
                 def tag_start(name, attributes)
@@ -68,7 +58,8 @@ module OroGen
                     opaques << OpaqueDefinition.new(
                         typekit_registry.get(base_type_name),
                         inter_type_name,
-                        Hash[include: includes.split(":"), needs_copy: (needs_copy == "1")],
+                        Hash[include: includes.split(":"),
+                             needs_copy: (needs_copy == "1")],
                         nil
                     )
                     registry.merge(typekit_registry.minimal(base_type_name))
@@ -94,13 +85,14 @@ module OroGen
                 typekit
             end
 
-            def initialize(loader, name, registry = Typelib::Registry.new, typelist = [], interface_typelist = [])
+            def initialize(loader, name, registry = Typelib::Registry.new, typelist = [],
+                interface_typelist = [])
                 @loader = loader
                 @name = name
                 @registry = registry
                 @typelist = typelist.to_set
                 @interface_typelist = interface_typelist.to_set
-                @opaques = Array.new
+                @opaques = []
                 @opaque_registry = Typelib::Registry.new
                 @imported_typekits = Set.new
             end
@@ -118,7 +110,8 @@ module OroGen
 
             def defines_array_of?(type)
                 typename = if type.respond_to?(:name) then type.name
-                           else type.to_str
+                           else
+                               type.to_str
                            end
 
                 typelist.any? { |str| str =~ /#{Regexp.quote(typename)}(\[\d+\])+/ }
@@ -131,14 +124,16 @@ module OroGen
 
             def include?(type)
                 typename = if type.respond_to?(:name) then type.name
-                           else type.to_str
+                           else
+                               type.to_str
                            end
                 typelist.include?(typename)
             end
 
             def interface_type?(type)
                 typename = if type.respond_to?(:name) then type.name
-                           else type.to_str
+                           else
+                               type.to_str
                            end
                 interface_typelist.include?(typename)
             end
@@ -155,7 +150,8 @@ module OroGen
                 if (result = opaques.find { |opaque_def| opaque_def.type.eql? type })
                     result
                 else
-                    raise InternalError, "#{self}#opaque_specification called for type #{type.name}, but could not find the corresponding opaque specification"
+                    raise InternalError,
+                          "#{self}#opaque_specification called for type #{type.name}, but could not find the corresponding opaque specification"
                 end
             end
 
@@ -173,12 +169,13 @@ module OroGen
                             result
                         elsif type.name =~ /_m$/
                             resolve_type(type.name.gsub(/_m$/, ""))
-                        else raise Typelib::NotFound
+                        else
+                            raise Typelib::NotFound
                         end
                     rescue Typelib::NotFound
                         # This is a pretty expensive operation and is seldom
                         # needed, so avoid doing it unnecessarily
-                        @intermediate_to_opaque ||= Hash.new
+                        @intermediate_to_opaque ||= {}
                         @indexed_intermediates ||= Set.new
                         registry.each do |t|
                             if !@indexed_intermediates.include?(t) && t.contains_opaques?
@@ -192,7 +189,9 @@ module OroGen
                     if (opaque_deference = find_opaque_for_intermediate(type.deference))
                         resolve_type("#{type.container_kind}<#{opaque_deference.name}>")
                     end
-                elsif (opaque_def = opaques.find { |spec| resolve_type(spec.intermediate).eql?(type) })
+                elsif (opaque_def = opaques.find do |spec|
+                    resolve_type(spec.intermediate).eql?(type)
+                end)
                     opaque_def.type
                 end
             end
@@ -219,11 +218,12 @@ module OroGen
                     else
                         path = Typelib.split_typename(type.name)
                         path.map! do |p|
-                            p.gsub(/[<>\[\], \/]/, "_")
+                            p.gsub(%r{[<>\[\], /]}, "_")
                         end
                         "/" + path.join("/") + "_m"
                     end
-                else type.name
+                else
+                    type.name
                 end
             end
 
@@ -268,14 +268,10 @@ module OroGen
             # Checks if a type is an oroGen-generated type used as an
             # intermediate
             def m_type?(type)
-                if type.name =~ /_m$/
-                    return true
-                end
+                return true if type.name =~ /_m$/
 
                 if type.respond_to?(:deference)
-                    while type.respond_to?(:deference)
-                        type = type.deference
-                    end
+                    type = type.deference while type.respond_to?(:deference)
                     m_type?(type)
                 else
                     false
@@ -293,7 +289,7 @@ module OroGen
             def respond_to_missing?(m, include_private = false)
                 if super then super
                 elsif m.to_s =~ /^create_(interface_)?(\w+)$/
-                    registry.respond_to?("create_#{$2}")
+                    registry.respond_to?("create_#{::Regexp.last_match(2)}")
                 end
             end
 
@@ -307,13 +303,11 @@ module OroGen
             def method_missing(m, *args, &block)
                 case m.to_s
                 when /^create_(interface_)?(\w+)$/
-                    interface = !!$1
-                    category  = $2
+                    interface = !!::Regexp.last_match(1)
+                    category  = ::Regexp.last_match(2)
                     type = registry.send("create_#{category}", *args, &block)
                     typelist << type.name
-                    if interface
-                        interface_typelist << type.name
-                    end
+                    interface_typelist << type.name if interface
                     type
                 else super
                 end

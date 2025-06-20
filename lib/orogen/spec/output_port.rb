@@ -15,8 +15,7 @@ module OroGen
                 @init_policy = nil
             end
 
-            attr_reader :burst_size
-            attr_reader :burst_period
+            attr_reader :burst_size, :burst_period
 
             def input?
                 false
@@ -64,9 +63,7 @@ module OroGen
 
             # The set of input ports that will cause a write on this output
             def port_triggers
-                if @triggered_once_per_update
-                    return []
-                end
+                return [] if @triggered_once_per_update
 
                 @port_triggers
             end
@@ -140,10 +137,11 @@ module OroGen
             def init_policy?
                 @init_policy
             end
-             
+
             # Calls keep_last_written_value(value)
             def init_policy(*value)
                 return @init_policy if value.empty?
+
                 if value.size > 1
                     raise ArgumentError,
                           "init_policy accepts at most one argument, " \

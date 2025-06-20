@@ -5,6 +5,7 @@ module OroGen
         module Corba
             class Plugin
                 attr_reader :typekit
+
                 def initialize(typekit)
                     @typekit = typekit
 
@@ -42,9 +43,7 @@ module OroGen
                         needs_link = typekit.linked_used_libraries.include?(pkg)
                         result << Gen::RTT_CPP::BuildDependency.new(pkg.name.upcase, pkg.name)
                                                                .in_context("corba", "include")
-                        if needs_link
-                            result.last.in_context("corba", "link")
-                        end
+                        result.last.in_context("corba", "link") if needs_link
                     end
                     result
                 end
@@ -86,30 +85,38 @@ module OroGen
                     end
                     idl_registry.clear_aliases
 
-                    idl = Gen::RTT_CPP.render_template "typekit", "corba", "Types.idl", binding
+                    idl = Gen::RTT_CPP.render_template "typekit", "corba", "Types.idl",
+                                                       binding
                     idl_file = typekit.save_automatic("transports", "corba",
                                                       "#{typekit.name}Types.idl", idl)
 
-                    code = Gen::RTT_CPP.render_template "typekit", "corba", "Convertions.cpp", binding
+                    code = Gen::RTT_CPP.render_template "typekit", "corba",
+                                                        "Convertions.cpp", binding
                     impl << typekit.save_automatic("transports", "corba",
                                                    "Convertions.cpp", code)
 
-                    code = Gen::RTT_CPP.render_template "typekit", "corba", "TransportPlugin.hpp", binding
+                    code = Gen::RTT_CPP.render_template "typekit", "corba",
+                                                        "TransportPlugin.hpp", binding
                     headers << typekit.save_automatic("transports", "corba",
                                                       "TransportPlugin.hpp", code)
-                    code = Gen::RTT_CPP.render_template "typekit", "corba", "TransportPlugin.cpp", binding
+                    code = Gen::RTT_CPP.render_template "typekit", "corba",
+                                                        "TransportPlugin.cpp", binding
                     impl << typekit.save_automatic("transports", "corba",
                                                    "TransportPlugin.cpp", code)
 
                     code_snippets = typesets.interface_types.map do |type|
                         target_type = typekit.intermediate_type_for(type)
-                        code = Gen::RTT_CPP.render_template "typekit", "corba", "Type.cpp", binding
+                        code = Gen::RTT_CPP.render_template "typekit", "corba",
+                                                            "Type.cpp", binding
                         [type, code]
                     end
-                    impl += typekit.render_typeinfo_snippets(code_snippets, "transports", "corba")
+                    impl += typekit.render_typeinfo_snippets(code_snippets, "transports",
+                                                             "corba")
 
-                    code = Gen::RTT_CPP.render_template "typekit", "corba", "Registration.hpp", binding
-                    typekit.save_automatic("transports", "corba", "Registration.hpp", code)
+                    code = Gen::RTT_CPP.render_template "typekit", "corba",
+                                                        "Registration.hpp", binding
+                    typekit.save_automatic("transports", "corba", "Registration.hpp",
+                                           code)
 
                     impl = impl.map do |path|
                         typekit.cmake_relative_path(path, "transports", "corba")
@@ -118,9 +125,12 @@ module OroGen
                         typekit.cmake_relative_path(path, "transports", "corba")
                     end.sort
 
-                    pkg_config = Gen::RTT_CPP.render_template "typekit", "corba", "transport-corba.pc", binding
-                    typekit.save_automatic("transports", "corba", "#{typekit.name}-transport-corba.pc.in", pkg_config)
-                    code = Gen::RTT_CPP.render_template "typekit", "corba", "CMakeLists.txt", binding
+                    pkg_config = Gen::RTT_CPP.render_template "typekit", "corba",
+                                                              "transport-corba.pc", binding
+                    typekit.save_automatic("transports", "corba",
+                                           "#{typekit.name}-transport-corba.pc.in", pkg_config)
+                    code = Gen::RTT_CPP.render_template "typekit", "corba",
+                                                        "CMakeLists.txt", binding
                     typekit.save_automatic("transports", "corba", "CMakeLists.txt", code)
 
                     # We generate our own CMake code, no need to export anything to the
@@ -151,29 +161,30 @@ module OroGen
                 end
 
                 def normalize_idl_name(basename)
-                    strip_leading_underscore(normalize_cxxname(basename.gsub(/[^\w]/, "_")))
+                    strip_leading_underscore(normalize_cxxname(basename.gsub(/[^\w]/,
+                                                                             "_")))
                 end
 
                 def corba_namespace
                     "orogen#{strip_leading_underscore(namespace('::'))}Corba"
                 end
 
-                def to_corba_signature(typekit, options = Hash.new)
+                def to_corba_signature(typekit, options = {})
                     target_type = typekit.intermediate_type_for(self)
                     "bool #{options[:namespace]}toCORBA( #{target_type.corba_ref_type} corba, #{arg_type} value )"
                 end
 
-                def to_corba_array_signature(typekit, options = Hash.new)
+                def to_corba_array_signature(typekit, options = {})
                     target_type = typekit.intermediate_type_for(self)
                     "bool #{options[:namespace]}toCORBA( #{target_type.corba_ref_type} corba, #{arg_type} value, int length )"
                 end
 
-                def from_corba_signature(typekit, options = Hash.new)
+                def from_corba_signature(typekit, options = {})
                     target_type = typekit.intermediate_type_for(self)
                     "bool #{options[:namespace]}fromCORBA( #{ref_type} value, #{target_type.corba_arg_type} corba )"
                 end
 
-                def from_corba_array_signature(typekit, options = Hash.new)
+                def from_corba_array_signature(typekit, options = {})
                     target_type = typekit.intermediate_type_for(self)
                     "bool #{options[:namespace]}fromCORBA( #{ref_type} value, int length, #{target_type.corba_arg_type} corba )"
                 end
@@ -231,19 +242,17 @@ module OroGen
                         else
                             raise "unexpected integer size #{size}"
                         end
+                    elsif size == 4
+                        "CORBA::Float"
+                    elsif size == 8
+                        "CORBA::Double"
                     else
-                        if size == 4
-                            "CORBA::Float"
-                        elsif size == 8
-                            "CORBA::Double"
-                        else
-                            raise "unexpected floating-point size #{size}"
-                        end
+                        raise "unexpected floating-point size #{size}"
                     end
                 end
             end
 
-            ::Typelib::specialize_model "/uint8_t" do
+            ::Typelib.specialize_model "/uint8_t" do
                 def inline_fromAny(any_var, corba_var, indent) # rubocop:disable Naming/MethodName
                     "#{indent}#{any_var} >>= CORBA::Any::to_octet(#{corba_var});"
                 end
@@ -253,7 +262,7 @@ module OroGen
                 end
             end
 
-            ::Typelib::specialize_model "/int8_t" do
+            ::Typelib.specialize_model "/int8_t" do
                 def inline_fromAny(any_var, corba_var, indent) # rubocop:disable Naming/MethodName
                     "#{indent}#{any_var} >>= CORBA::Any::to_char(#{corba_var});"
                 end
@@ -263,7 +272,7 @@ module OroGen
                 end
             end
 
-            ::Typelib::specialize_model "/bool" do
+            ::Typelib.specialize_model "/bool" do
                 def inline_fromAny(any_var, corba_var, indent) # rubocop:disable Naming/MethodName
                     "#{indent}#{any_var} >>= CORBA::Any::to_boolean(#{corba_var});"
                 end
@@ -273,7 +282,7 @@ module OroGen
                 end
             end
 
-            ::Typelib::specialize_model "/std/string" do
+            ::Typelib.specialize_model "/std/string" do
                 def inlines_code?
                     true
                 end
@@ -294,18 +303,18 @@ module OroGen
                     "#{indent}#{result} = #{value}.c_str();"
                 end
 
-                def to_corba(typekit, result, indent)
+                def to_corba(_typekit, result, indent)
                     result << "#{indent}corba = value.c_str();\n"
                 end
 
-                def from_corba(typekit, result, indent)
+                def from_corba(_typekit, result, indent)
                     result << "#{indent}value = corba;\n"
                 end
             end
 
             module ContainerType
                 def corba_name
-                    container_kind = self.container_kind.gsub /.*\//, ""
+                    container_kind = self.container_kind.gsub(%r{.*/}, "")
                     element_name   = deference.name.gsub(/[^\w]/, "_")
                     typedef_name = container_kind + "_" + element_name
 
@@ -329,7 +338,7 @@ module OroGen
                     deference.corba_namespace
                 end
 
-                def to_corba(typekit, result, indent)
+                def to_corba(_typekit, result, indent)
                     collection_name = container_kind
                     element_type = deference.name
                     element_type = registry.build(element_type)
@@ -349,10 +358,12 @@ module OroGen
     #{indent}size_t #{element_idx} = 0;
     #{indent}for(#{cxx_name}::const_iterator it = value.begin(); it != value.end(); ++it, ++#{element_idx})
     #{indent}{
-                    EOT
+                            EOT
 
                             if element_type.inlines_code?
-                                result << element_type.inline_toCorba("corba[#{element_idx}]", "(*it)", indent)
+                                result << element_type.inline_toCorba(
+                                    "corba[#{element_idx}]", "(*it)", indent
+                                )
                             elsif element_type < ArrayType
                                 result << indent << "    toCORBA(corba[#{element_idx}], reinterpret_cast< #{element_type.deference.cxx_name} const*>(*it), #{element_type.length});\n"
                             else
@@ -365,13 +376,14 @@ module OroGen
                     result
                 end
 
-                def from_corba(typekit, result, indent)
+                def from_corba(_typekit, result, indent)
                     collection_name = container_kind
                     element_type = deference.name
                     element_type = registry.build(element_type)
 
                     if container_kind != "/std/vector"
-                        raise NotImplementedError, "from_corba is not implemented for other containers than std::vector, got #{container_kind}"
+                        raise NotImplementedError,
+                              "from_corba is not implemented for other containers than std::vector, got #{container_kind}"
                     end
 
                     allocate_index do |element_idx|
@@ -386,10 +398,12 @@ module OroGen
                             result << <<-EOT
     #{indent}for(size_t #{element_idx} = 0; #{element_idx} < size_#{element_idx}; ++#{element_idx})
     #{indent}{
-                    EOT
+                            EOT
 
                             if element_type.inlines_code?
-                                result << element_type.inline_fromCorba("value[#{element_idx}]", "corba[#{element_idx}]", indent)
+                                result << element_type.inline_fromCorba(
+                                    "value[#{element_idx}]", "corba[#{element_idx}]", indent
+                                )
                             elsif element_type < ArrayType
                                 result << "#{indent}    fromCORBA(reinterpret_cast<#{element_type.deference.cxx_name}*>(value[#{element_idx}]), #{element_type.length}, corba[#{element_idx}]);\n"
                             else
@@ -406,7 +420,7 @@ module OroGen
             module EnumType
                 include Utils
 
-                def to_corba(typekit, result, indent)
+                def to_corba(_typekit, result, indent)
                     seen_values = Set.new
                     namespace = namespace("::")
                     stripped_namespace = strip_leading_underscore(namespace)
@@ -421,15 +435,15 @@ module OroGen
                         result << indent << "    corba = orogen#{stripped_namespace}Corba::#{stripped_name};\n"
                         result << indent << "    break;\n"
                     end
-                    result << <<-EOT
-#{indent}  default:
-#{indent}    RTT::log(RTT::Error) << "orogen_typekits::toCORBA() invalid value '" << (int)value << "' for enum '#{cxx_name}'" << RTT::endlog();
-#{indent}    return false;
-EOT
+                    result << <<~EOT
+                        #{indent}  default:
+                        #{indent}    RTT::log(RTT::Error) << "orogen_typekits::toCORBA() invalid value '" << (int)value << "' for enum '#{cxx_name}'" << RTT::endlog();
+                        #{indent}    return false;
+                    EOT
                     result << indent << "}\n"
                 end
 
-                def from_corba(typekit, result, indent)
+                def from_corba(_typekit, result, indent)
                     seen_values = Set.new
                     namespace = namespace("::")
                     stripped_namespace = strip_leading_underscore(namespace)
@@ -444,28 +458,32 @@ EOT
                         result << indent << "    value = #{namespace}#{name};\n"
                         result << indent << "    break;\n"
                     end
-                    result << <<-EOT
-#{indent}  default:
-#{indent}    RTT::log(RTT::Error) << "orogen_typekits::fromCORBA() invalid value '" << (int)corba << "' for enum '#{cxx_name}'" << RTT::endlog();
-#{indent}    return false;
-EOT
+                    result << <<~EOT
+                        #{indent}  default:
+                        #{indent}    RTT::log(RTT::Error) << "orogen_typekits::fromCORBA() invalid value '" << (int)corba << "' for enum '#{cxx_name}'" << RTT::endlog();
+                        #{indent}    return false;
+                    EOT
                     result << indent << "}\n"
                 end
             end
 
             module CompoundType
                 def to_corba(typekit, result, indent)
-                    code_copy(typekit, result, indent, "corba", "value", "toCORBA", true) do |field_name, field_type|
+                    code_copy(typekit, result, indent, "corba", "value", "toCORBA",
+                              true) do |field_name, field_type|
                         if field_type.inlines_code?
-                            field_type.inline_toCorba("corba.#{field_name}", "value.#{field_name}", indent)
+                            field_type.inline_toCorba("corba.#{field_name}",
+                                                      "value.#{field_name}", indent)
                         end
                     end
                 end
 
                 def from_corba(typekit, result, indent)
-                    code_copy(typekit, result, indent, "value", "corba", "fromCORBA", true) do |field_name, field_type|
+                    code_copy(typekit, result, indent, "value", "corba", "fromCORBA",
+                              true) do |field_name, field_type|
                         if field_type.inlines_code?
-                            field_type.inline_fromCorba("value.#{field_name}", "corba.#{field_name}", indent)
+                            field_type.inline_fromCorba("value.#{field_name}",
+                                                        "corba.#{field_name}", indent)
                         end
                     end
                 end
@@ -489,7 +507,8 @@ EOT
                         result << "#{indent}const int array_size = length * sizeof(#{element_type.cxx_name});\n"
                         result << "#{indent}memcpy(corba, value, array_size);"
                     else
-                        code_copy(typekit, result, indent, "corba", "value", "toCORBA") do |type, _|
+                        code_copy(typekit, result, indent, "corba", "value",
+                                  "toCORBA") do |type, _|
                             type.inlines_code?
                         end
                     end
@@ -504,7 +523,8 @@ EOT
                         result << "#{indent}const int array_size = length * sizeof(#{element_type.cxx_name});\n"
                         result << "#{indent}memcpy(value, corba, array_size);"
                     else
-                        code_copy(typekit, result, indent, "value", "corba", "fromCORBA") do |type, _|
+                        code_copy(typekit, result, indent, "value", "corba",
+                                  "fromCORBA") do |type, _|
                             type.inlines_code?
                         end
                     end
@@ -515,7 +535,8 @@ EOT
                 def to_corba(typekit, result, indent)
                     spec        = typekit.opaque_specification(name)
                     target_type = typekit.intermediate_type_for(self)
-                    result << typekit.code_toIntermediate(target_type, spec.needs_copy?, "    ")
+                    result << typekit.code_toIntermediate(target_type, spec.needs_copy?,
+                                                          "    ")
                     result << "#{indent}if (!toCORBA(corba, intermediate)) return false;"
                 end
 

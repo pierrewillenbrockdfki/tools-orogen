@@ -4,6 +4,7 @@ require "orogen/test"
 
 describe OroGen::Loaders::Project do
     attr_reader :loader, :target
+
     before do
         @loader = OroGen::Loaders::Base.new
         OroGen::Loaders::RTT.setup_loader(loader)
@@ -29,7 +30,8 @@ describe OroGen::Loaders::Project do
     it "does not load after an empty line" do
         load(File.join(path_to_data, "modules", "load_documentation.orogen"))
         task = target.task_model_from_name("Task")
-        assert_equal "PROPERTY", task.find_property("test_empty_line_after_proper_comment").doc
+        assert_equal "PROPERTY",
+                     task.find_property("test_empty_line_after_proper_comment").doc
         assert_nil task.find_property("test_empty_line").doc
     end
 end

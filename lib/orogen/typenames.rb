@@ -21,7 +21,8 @@ module Typelib
             template_arguments.map! do |arg|
                 if arg !~ /^\d+$/ && arg[0, 1] != "/"
                     "/#{arg}"
-                else arg
+                else
+                    arg
                 end
             end
 
@@ -39,8 +40,8 @@ module Typelib
             end
 
             if name =~ /(.*)((?:\[\d+\])+)$/
-                name = $1
-                suffix = $2
+                name = ::Regexp.last_match(1)
+                suffix = ::Regexp.last_match(2)
             else
                 suffix = ""
             end
@@ -59,20 +60,20 @@ module Typelib
             name, template_arguments = Typelib::GCCXMLLoader.parse_template(name)
 
             name = name.gsub("/", "::")
-            if name =~ /^::(.*)/
-                name = $1
-            end
+            name = ::Regexp.last_match(1) if name =~ /^::(.*)/
 
             if !template_arguments.empty?
                 template_arguments.map! do |arg|
                     if arg !~ /^\d+$/
                         normalize_cxxname(arg)
-                    else arg
+                    else
+                        arg
                     end
                 end
 
                 "#{name}< #{template_arguments.join(', ')} >"
-            else name
+            else
+                name
             end
         end
 
@@ -167,7 +168,9 @@ module Typelib
 
             if type.name == "/bool"
                 "bool"
-            elsif (mapped = @typelib_to_rtt_mappings.find { |typelib, _| typelib == type })
+            elsif (mapped = @typelib_to_rtt_mappings.find do |typelib, _|
+                typelib == type
+            end)
                 mapped[1]
             else
                 raise ArgumentError,

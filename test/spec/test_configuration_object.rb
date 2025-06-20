@@ -5,6 +5,7 @@ require "orogen/test"
 describe OroGen::Spec::ConfigurationObject do
     describe "#to_h" do
         attr_reader :task, :p
+
         before do
             @task = OroGen::Spec::TaskContext.new(create_dummy_project)
             @p = task.property("p", "/double")

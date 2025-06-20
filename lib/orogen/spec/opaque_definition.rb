@@ -23,7 +23,8 @@ module OroGen
 
             def initialize(type, intermediate, options, code_generator)
                 if !type || !intermediate
-                    raise ArgumentError, "trying to create an opaque definition with nil types"
+                    raise ArgumentError,
+                          "trying to create an opaque definition with nil types"
                 end
 
                 @type = type

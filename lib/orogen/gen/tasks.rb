@@ -5,8 +5,9 @@ module OroGen
         module RTT_CPP
             def self.multiline_string_to_cxx(str)
                 if str
-                    "\"#{str.split("\n").join("\\n").gsub('"', '\\"')}\""
-                else "\"\""
+                    "\"#{str.split("\n").join('\\n').gsub('"', '\\"')}\""
+                else
+                    "\"\""
                 end
             end
 
@@ -21,31 +22,34 @@ module OroGen
                 end
 
                 def gen_dynamic_setter
-                    if dynamic? && (setter_operation.task == task)
-                        # Adding user method
-                        task.add_base_method("bool", "set#{name.capitalize}", setter_operation.argument_signature)
-                            .body("  return true;")
-                        task.add_user_method("bool", "set#{name.capitalize}", setter_operation.argument_signature)
-                            .body(" return(#{task.name}Base::set#{name.capitalize}(value));")
+                    return unless dynamic? && (setter_operation.task == task)
 
-                        # Adding user method cal to updateDynamicProperties
-                        task.add_code_to_base_method_before "updateDynamicProperties", "        if(!set#{name.capitalize}(_#{name}.get())) return false;\n"
+                    # Adding user method
+                    task.add_base_method("bool", "set#{name.capitalize}",
+                                         setter_operation.argument_signature)
+                        .body("  return true;")
+                    task.add_user_method("bool", "set#{name.capitalize}",
+                                         setter_operation.argument_signature)
+                        .body(" return(#{task.name}Base::set#{name.capitalize}(value));")
 
-                        setter_operation.base_body <<EOF
-//      The following steps happen within the base Implementation:
-//       if the task is not configured yet, update the classical property and return true
-//       if the task is configured OR running so far, call the user method to update the value
-//         if the user method return false, we return false too and do NOT update the classical value
-        if(isConfigured()){
-            if(!set#{name.capitalize}(#{setter_operation.argument_signature(true, false)})){
-                return false;
-            }
-        }
-        _#{name}.set(value);
-        return true;
-EOF
-                        setter_operation.hidden = true
-                    end
+                    # Adding user method cal to updateDynamicProperties
+                    task.add_code_to_base_method_before "updateDynamicProperties",
+                                                        "        if(!set#{name.capitalize}(_#{name}.get())) return false;\n"
+
+                    setter_operation.base_body <<~EOF
+                        //      The following steps happen within the base Implementation:
+                        //       if the task is not configured yet, update the classical property and return true
+                        //       if the task is configured OR running so far, call the user method to update the value
+                        //         if the user method return false, we return false too and do NOT update the classical value
+                                if(isConfigured()){
+                                    if(!set#{name.capitalize}(#{setter_operation.argument_signature(true, false)})){
+                                        return false;
+                                    }
+                                }
+                                _#{name}.set(value);
+                                return true;
+                    EOF
+                    setter_operation.hidden = true
                 end
             end
 
@@ -60,9 +64,7 @@ EOF
 
                 def register_for_generation
                     constructor = []
-                    if default_value
-                        constructor << "_#{name}.set(#{cxx_default_value});"
-                    end
+                    constructor << "_#{name}.set(#{cxx_default_value});" if default_value
                     constructor << "properties()->addProperty( _#{name} );"
 
                     task.add_base_member("property", "_#{name}",
@@ -85,9 +87,7 @@ EOF
 
                 def register_for_generation
                     constructor = []
-                    if default_value
-                        constructor << "_#{name}.set(#{cxx_default_value});"
-                    end
+                    constructor << "_#{name}.set(#{cxx_default_value});" if default_value
                     constructor << "attributes()->addAttribute( _#{name} );"
 
                     task.add_base_member("attribute", "_#{name}",
@@ -109,7 +109,8 @@ EOF
                     add =
                         if task.find_event_port(name)
                             "addEventPort"
-                        else "addPort"
+                        else
+                            "addPort"
                         end
 
                     constructor = []
@@ -156,7 +157,7 @@ EOF
                     end
 
                     type.metadata.get("orogen:cxx_port_codegen:constructor").each do |code|
-                        setup << code % [name]
+                        setup << format(code, name)
                     end
 
                     task.add_base_construction("output_port", "_#{name}",
@@ -175,9 +176,7 @@ EOF
 
                 def register_for_generation
                     super
-                    unless @do_not_clean
-                        task.in_base_hook("start", "_#{name}.clear();")
-                    end
+                    task.in_base_hook("start", "_#{name}.clear();") unless @do_not_clean
                 end
             end
 
@@ -199,7 +198,8 @@ EOF
                     if with_names
                         result << " " <<
                             if block_given? then yield
-                            else method_name
+                            else
+                                method_name
                             end
                     end
                     result << "(" << argument_signature(with_names) << ")"
@@ -213,7 +213,7 @@ EOF
 
                 # Returns the argument part of the C++ signature for this callable
                 def argument_signature(with_names = true, with_types = true)
-                    arglist = arguments.map do |name, type, doc, qualified_type|
+                    arglist = arguments.map do |name, type, _doc, qualified_type|
                         # Auto-add const-ref for non-trivial types
                         arg =
                             if type.cxx_name == qualified_type && !(type < Typelib::NumericType)
@@ -241,17 +241,21 @@ EOF
                 def register_for_generation
                     thread_flag =
                         if in_caller_thread then "RTT::ClientThread"
-                        else "RTT::OwnThread"
+                        else
+                            "RTT::OwnThread"
                         end
 
                     constructor = "provides()->addOperation( _#{name})\n" +
                                   "    .doc(#{Generation.multiline_string_to_cxx(doc)})"
                     unless arguments.empty?
-                        constructor += "\n" + arguments.map { |n, _, d| "    .arg(\"#{n}\", \"#{d}\")" }.join("\n")
+                        constructor += "\n" + arguments.map { |n, _, d|
+                            "    .arg(\"#{n}\", \"#{d}\")"
+                        }.join("\n")
                     end
 
                     if hidden? && !base_body
-                        raise InternalError, "a hidden operation with name #{name} must have a body"
+                        raise InternalError,
+                              "a hidden operation with name #{name} must have a body"
                     end
 
                     body =
@@ -259,23 +263,27 @@ EOF
                             self.body
                         elsif has_return_value?
                             "    return #{return_type.first.cxx_name}();"
-                        else ""
+                        else
+                            ""
                         end
 
-                    task.add_base_member("operation", "_#{name}", "RTT::Operation< #{signature(false)} >")
+                    task.add_base_member("operation", "_#{name}",
+                                         "RTT::Operation< #{signature(false)} >")
                         .initializer("_#{name}(\"#{name}\", &#{task.basename}Base::#{method_name}, this, #{thread_flag})")
                         .constructor("#{constructor};")
 
                     if hidden? || base_body
-                        task.add_base_method(return_type[1], method_name, argument_signature)
+                        task.add_base_method(return_type[1], method_name,
+                                             argument_signature)
                             .body(base_body)
                             .doc("base implementation of the #{method_name} operation")
                     end
-                    unless hidden?
-                        task.add_user_method(return_type[1], method_name, argument_signature)
-                            .body(body)
-                            .doc(doc || "Handler for the #{method_name} operation")
-                    end
+                    return if hidden?
+
+                    task.add_user_method(return_type[1], method_name,
+                                         argument_signature)
+                        .body(body)
+                        .doc(doc || "Handler for the #{method_name} operation")
                 end
             end
 
@@ -346,9 +354,7 @@ EOF
                 # This method generates the relative basepath for generation of all files
                 def basepath
                     s = File.join(namespace.split("::").join(File::SEPARATOR))
-                    unless s.empty?
-                        s += File::SEPARATOR
-                    end
+                    s += File::SEPARATOR unless s.empty?
                     s
                 end
 
@@ -391,24 +397,24 @@ EOF
 
                     super
 
-                    hooks = %w{configure start update error exception fatal stop cleanup}
-                    @base_hook_code = Hash.new
+                    hooks = %w[configure start update error exception fatal stop cleanup]
+                    @base_hook_code = {}
                     hooks.each do |hook_name|
-                        @base_hook_code[hook_name] = Array.new
+                        @base_hook_code[hook_name] = []
                     end
 
-                    @user_hook_code = Hash.new
+                    @user_hook_code = {}
                     hooks.each do |hook_name|
-                        @user_hook_code[hook_name] = Array.new
+                        @user_hook_code[hook_name] = []
                     end
 
-                    @generation_handlers = Array.new
-                    @base_methods = Array.new
-                    @user_methods = Array.new
-                    @base_members = Array.new
-                    @user_members = Array.new
-                    @base_header_code = Array.new
-                    @base_implementation_code = Array.new
+                    @generation_handlers = []
+                    @base_methods = []
+                    @user_methods = []
+                    @base_members = []
+                    @user_members = []
+                    @base_header_code = []
+                    @base_implementation_code = []
                 end
 
                 def check_uniqueness(name)
@@ -425,15 +431,19 @@ EOF
                         end
                     end
 
-                    if name.to_str != "state" && @orocos_rb && !project.kind_of?(ImportedProject)
-                        if Orocos::TaskContext.instance_methods.find { |n| n.to_s == name.to_str }
-                            STDERR.puts "WARN: #{name} is a method name used in orocos.rb"
-                            STDERR.puts "WARN:   if you keep that name, you will not be able to use shortcut access in orocos.rb"
-                            STDERR.puts "WARN:   for instance, for a property, you will have to do"
-                            STDERR.puts "WARN:      value = my_task.property('#{name}').read(new_value)"
-                            STDERR.puts "WARN:   instead of the shorter and clearer"
-                            STDERR.puts "WARN:      value = my_task.#{name}"
-                        end
+                    unless name.to_str != "state" && @orocos_rb && !project.kind_of?(ImportedProject)
+                        return
+                    end
+
+                    if Orocos::TaskContext.instance_methods.find do |n|
+                        n.to_s == name.to_str
+                    end
+                        warn "WARN: #{name} is a method name used in orocos.rb"
+                        warn "WARN:   if you keep that name, you will not be able to use shortcut access in orocos.rb"
+                        warn "WARN:   for instance, for a property, you will have to do"
+                        warn "WARN:      value = my_task.property('#{name}').read(new_value)"
+                        warn "WARN:   instead of the shorter and clearer"
+                        warn "WARN:      value = my_task.#{name}"
                     end
                 end
 
@@ -444,13 +454,13 @@ EOF
 
                 # Returns the C++ value name for the given state when defined
                 # globally
-                def state_global_value_name(state_name, state_type) # :nodoc:
+                def state_global_value_name(state_name, _state_type) # :nodoc:
                     "#{basename}_#{state_name.upcase}"
                 end
 
                 # Returns the C++ value name for the given state when defined in the
                 # associated class scope.
-                def state_local_value_name(state_name, state_type) # :nodoc:
+                def state_local_value_name(state_name, _state_type) # :nodoc:
                     state_name.upcase
                 end
 
@@ -490,27 +500,21 @@ EOF
                 # on a later stage, but still the constructors need to be changed
                 #
                 def validate_constructors(filename, taskname)
-                    unless fixed_initial_state?
-                        return
-                    end
+                    return unless fixed_initial_state?
 
                     File.open(filename) do |file|
-                        begin
-                            while true
-                                line = file.readline
-                                begin
-                                    if Regexp.new(taskname + "\(.*\)").match(line)
-                                        if $1 =~ /TaskCore::TaskState/
-                                            puts "\nWarning: 'needs_configuration' has been specified for the task '#{taskname}', but the task's constructor has not been updated after this change.\n\n Note: setting a TaskState is not allowed in combination with using 'needs_configuration'.\n Constructors in #{filename} and corresponding files require adaption."
-                                        end
-                                    end
-                                rescue ArgumentError => e
-                                    STDERR.puts "[CRITICAL] Could not parse \'#{line}\' maybe it contains invalid chars?"
-                                    raise e
+                        while true
+                            line = file.readline
+                            begin
+                                if Regexp.new(taskname + "\(.*\)").match(line) && (::Regexp.last_match(1) =~ /TaskCore::TaskState/)
+                                    puts "\nWarning: 'needs_configuration' has been specified for the task '#{taskname}', but the task's constructor has not been updated after this change.\n\n Note: setting a TaskState is not allowed in combination with using 'needs_configuration'.\n Constructors in #{filename} and corresponding files require adaption."
                                 end
+                            rescue ArgumentError => e
+                                warn "[CRITICAL] Could not parse \'#{line}\' maybe it contains invalid chars?"
+                                raise e
                             end
-                        rescue EOFError
                         end
+                    rescue EOFError
                     end
                 end
 
@@ -520,7 +524,8 @@ EOF
                     if superclass_has_dynamic
                         # Call the superclass method if needed, returning false if it fail. Otherwise check our dynamic properties
                         # they are generated in register_for_generation, or returning true in the end
-                        add_code_to_base_method_after name, "        return #{superclass.name}::#{name}();\n"
+                        add_code_to_base_method_after name,
+                                                      "        return #{superclass.name}::#{name}();\n"
                     else
                         # No superclass code, so return simply true
                         add_code_to_base_method_after name, "        return true;\n"
@@ -555,11 +560,13 @@ EOF
                     end
 
                     if has_dynamic_properties?
-                        create_dynamic_updater("updateDynamicProperties", superclass.has_dynamic_properties?)
+                        create_dynamic_updater("updateDynamicProperties",
+                                               superclass.has_dynamic_properties?)
                     end
 
                     if has_dynamic_attributes?
-                        create_dynamic_updater("updateDynamicAttributes", superclass.has_dynamic_attributes?)
+                        create_dynamic_updater("updateDynamicAttributes",
+                                               superclass.has_dynamic_attributes?)
                     end
 
                     extensions.each do |ext|
@@ -577,9 +584,7 @@ EOF
                     new_operations.each(&:register_for_generation)
                     self_ports.each(&:register_for_generation)
                     extensions.each do |ext|
-                        if ext.respond_to?(:generation_hook)
-                            ext.generation_hook(self)
-                        end
+                        ext.generation_hook(self) if ext.respond_to?(:generation_hook)
                         if ext.respond_to?(:register_for_generation)
                             OroGen.warn "The plugin #{ext.name} defines a \"register_for_generation\" hook, this got renamed to \"generation_hook\" please adapt the code or contact the developer."
                             ext.register_for_generation(self)
@@ -603,28 +608,37 @@ EOF
                         end
                     end
 
-                    base_code_cpp = Generation.render_template "tasks", "TaskBase.cpp", binding
-                    base_code_hpp = Generation.render_template "tasks", "TaskBase.hpp", binding
-                    Generation.save_automatic "tasks", basepath, "#{basename}Base.cpp", base_code_cpp
-                    Generation.save_automatic "tasks", basepath, "#{basename}Base.hpp", base_code_hpp
+                    base_code_cpp = Generation.render_template "tasks", "TaskBase.cpp",
+                                                               binding
+                    base_code_hpp = Generation.render_template "tasks", "TaskBase.hpp",
+                                                               binding
+                    Generation.save_automatic "tasks", basepath, "#{basename}Base.cpp",
+                                              base_code_cpp
+                    Generation.save_automatic "tasks", basepath, "#{basename}Base.hpp",
+                                              base_code_hpp
 
                     code_cpp = Generation.render_template "tasks", "Task.cpp", binding
                     code_hpp = Generation.render_template "tasks", "Task.hpp", binding
-                    file_cpp = Generation.save_user "tasks", basepath, "#{basename}.cpp", code_cpp
-                    file_hpp = Generation.save_user "tasks", basepath, "#{basename}.hpp", code_hpp
+                    file_cpp = Generation.save_user "tasks", basepath, "#{basename}.cpp",
+                                                    code_cpp
+                    file_hpp = Generation.save_user "tasks", basepath, "#{basename}.hpp",
+                                                    code_hpp
 
                     # Validate constructors of old task files
                     validate_constructors(file_cpp, basename)
                     validate_constructors(file_hpp, basename)
 
-                    fake_install_dir = File.join(project.base_dir, AUTOMATIC_AREA_NAME, project.name)
+                    fake_install_dir = File.join(project.base_dir, AUTOMATIC_AREA_NAME,
+                                                 project.name)
                     FileUtils.mkdir_p fake_install_dir
                     FileUtils.mkdir_p File.join(fake_install_dir, basepath)
 
                     FileUtils.ln_sf File.join(project.base_dir, "tasks", basepath, "#{basename}.hpp"),
-                                    File.join(fake_install_dir, basepath, "#{basename}.hpp")
+                                    File.join(fake_install_dir, basepath,
+                                              "#{basename}.hpp")
                     FileUtils.ln_sf File.join(project.base_dir, AUTOMATIC_AREA_NAME, "tasks", basepath, "#{basename}Base.hpp"),
-                                    File.join(fake_install_dir, basepath, "#{basename}Base.hpp")
+                                    File.join(fake_install_dir, basepath,
+                                              "#{basename}Base.hpp")
 
                     self
                 end
@@ -639,11 +653,12 @@ EOF
                 # If both are given, an ArgumentError exception is raised.
                 def self.validate_code_object(string, block)
                     if string && block
-                        raise ArgumentError, "you can provide either a string or a block, not both"
+                        raise ArgumentError,
+                              "you can provide either a string or a block, not both"
                     end
 
                     if string
-                        lambda { string.to_str }
+                        -> { string.to_str }
                     else
                         block
                     end
@@ -699,7 +714,8 @@ EOF
                 def in_hook(set, hook, string, &block) # :nodoc:
                     TaskContextGeneration.validate_code_object(string, block)
                     unless set.has_key?(hook)
-                        raise ArgumentError, "unknown hook '#{hook}', must be one of #{@additional_base_hook_code.keys.join(", ")}"
+                        raise ArgumentError,
+                              "unknown hook '#{hook}', must be one of #{@additional_base_hook_code.keys.join(', ')}"
                     end
 
                     set[hook] << (string || block)
@@ -739,7 +755,7 @@ EOF
                     attr_reader :task
 
                     def self.code_snippet(name, with_generation = true)
-                        class_eval <<-EOD
+                        class_eval <<-EOD, __FILE__, __LINE__ + 1
                     def #{name}(code = nil, &block)
                         if !code && !block
                             return @#{name}
@@ -770,8 +786,9 @@ EOF
                     end
                         EOD
 
-                        if with_generation
-                            class_eval <<-EOD
+                        return unless with_generation
+
+                        class_eval <<-EOD, __FILE__, __LINE__ + 1
                         def generate_#{name}
                             if @#{name}
                                 if result = @#{name}.call
@@ -780,8 +797,7 @@ EOF
                                 end
                             end
                         end
-                            EOD
-                        end
+                        EOD
                     end
 
                     def initialize(task)
@@ -790,25 +806,23 @@ EOF
                     end
 
                     def doc(*lines)
-                        if lines.empty?
-                            return @doc
-                        end
+                        return @doc if lines.empty?
 
                         comment = lines.join("\n * ") + "\n"
-                        if !@doc
-                            @doc = "/* #{comment}"
-                        else
-                            @doc = " * #{comment}"
-                        end
+                        @doc = if !@doc
+                                   "/* #{comment}"
+                               else
+                                   " * #{comment}"
+                               end
                         self
                     end
 
                     def with_indent(number, method)
                         text = send("generate_#{method}")
-                        if text
-                            indent = " " * number
-                            indent + text.split("\n").join("\n#{indent}")
-                        end
+                        return unless text
+
+                        indent = " " * number
+                        indent + text.split("\n").join("\n#{indent}")
                     end
                 end
 
@@ -816,9 +830,7 @@ EOF
                 #
                 # This is mainly meant for plugins
                 class GeneratedMember < GeneratedObject
-                    attr_reader :kind
-                    attr_reader :name
-                    attr_reader :type
+                    attr_reader :kind, :name, :type
 
                     def initialize(task, kind, name, type = nil)
                         super(task)
@@ -832,12 +844,13 @@ EOF
                     code_snippet "destructor"
 
                     def generate_declaration
-                        if type
-                            result = "#{type} #{name};"
-                            if doc
-                                "#{doc} */#{result}"
-                            else result
-                            end
+                        return unless type
+
+                        result = "#{type} #{name};"
+                        if doc
+                            "#{doc} */#{result}"
+                        else
+                            result
                         end
                     end
                 end
@@ -850,9 +863,7 @@ EOF
                 class GeneratedMethod < GeneratedObject
                     attr_accessor :in_base
 
-                    attr_reader :return_type
-                    attr_reader :name
-                    attr_reader :signature
+                    attr_reader :return_type, :name, :signature
 
                     def initialize(task, return_type, name, signature)
                         super(task)
@@ -866,22 +877,20 @@ EOF
 
                     def generate_declaration
                         decl = "virtual #{return_type} #{name}(#{signature})"
-                        if doc
-                            decl = "#{doc} */\n#{decl}"
-                        end
-                        unless body
-                            decl = "#{decl} = 0"
-                        end
+                        decl = "#{doc} */\n#{decl}" if doc
+                        decl = "#{decl} = 0" unless body
                         "#{decl};"
                     end
 
                     def generate_definition
-                        if body
-                            "#{return_type} #{task.basename}#{'Base' if in_base}::#{name}(#{signature})\n" +
-                                "{\n" +
-                                generate_body +
-                                "\n}"
-                        end
+                        return unless body
+
+                        "#{return_type} #{task.basename}#{if in_base
+                                                              'Base'
+                                                          end}::#{name}(#{signature})\n" +
+                            "{\n" +
+                            generate_body +
+                            "\n}"
                     end
                 end
 
@@ -889,9 +898,11 @@ EOF
                 def add_method(kind, return_type, name, signature)
                     self_set = send("self_#{kind}")
                     if !name.respond_to?(:to_str)
-                        raise ArgumentError, "expected a string for 'name', got #{name} (#{name.class})"
+                        raise ArgumentError,
+                              "expected a string for 'name', got #{name} (#{name.class})"
                     elsif self_set.any? { |m| m.name == name }
-                        raise ArgumentError, "there is already a method called #{name} defined at this level"
+                        raise ArgumentError,
+                              "there is already a method called #{name} defined at this level"
                     end
 
                     m = GeneratedMethod.new(self, return_type, name, signature)
@@ -972,18 +983,19 @@ EOF
                     add_method("user_methods", return_type, name, signature)
                 end
 
-                def self_base_members(&block)
+                def self_base_members
                     @base_members
                 end
 
-                def self_user_members(&block)
+                def self_user_members
                     @user_members
                 end
 
                 # Add a code snippet to the generated Base class declaration
                 def add_base_member(kind, name, type = nil)
                     if @base_members.any? { |m| m.kind == kind && m.name == name }
-                        raise ArgumentError, "duplicate name #{kind}:#{name} used for base member"
+                        raise ArgumentError,
+                              "duplicate name #{kind}:#{name} used for base member"
                     end
 
                     m = GeneratedMember.new(self, kind, name, type)
@@ -994,7 +1006,8 @@ EOF
                 # Add a code snippet to the generated user class declaration
                 def add_user_member(kind, name, type = nil)
                     if @user_members.any? { |m| m.kind == kind && m.name == name }
-                        raise ArgumentError, "duplicate name #{kind}:#{name} used for base member"
+                        raise ArgumentError,
+                              "duplicate name #{kind}:#{name} used for base member"
                     end
 
                     m = GeneratedMember.new(kind, name, type)

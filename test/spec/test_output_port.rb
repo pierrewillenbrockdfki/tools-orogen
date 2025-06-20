@@ -55,13 +55,11 @@ module OroGen
 
             it "raises ArgumentError if init_policy is called " \
                "with more than one argument" do
-                begin
-                    @port.init_policy(nil, "bla")
-                rescue ArgumentError => e
-                    assert_equal e.message,
-                                 "init_policy accepts at most one argument, " \
-                                 "but got 2"
-                end
+                @port.init_policy(nil, "bla")
+            rescue ArgumentError => e
+                assert_equal e.message,
+                             "init_policy accepts at most one argument, " \
+                             "but got 2"
             end
 
             it "allows method chaining when setting init_policy" do

@@ -4,6 +4,7 @@ require "orogen/test"
 
 describe OroGen::Spec::Project do
     attr_reader :project, :loader
+
     before do
         @loader = OroGen::Loaders::Files.new
         OroGen::Loaders::RTT.setup_loader(loader)

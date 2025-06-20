@@ -10,12 +10,12 @@ module OroGen
                     if @activity_setup
                         @activity_setup.call
                     else
-                        <<-EOD
-#{activity_type.class_name}* activity_#{name} = new #{activity_type.class_name}(
-            #{rtt_scheduler},
-            #{rtt_priority},
-            task_#{name}->engine(),
-            "#{name}");
+                        <<~EOD
+                            #{activity_type.class_name}* activity_#{name} = new #{activity_type.class_name}(
+                                        #{rtt_scheduler},
+                                        #{rtt_priority},
+                                        task_#{name}->engine(),
+                                        "#{name}");
                         EOD
                     end
                 end
@@ -29,7 +29,8 @@ module OroGen
                 # scheduling class
                 def rtt_scheduler
                     if @realtime then "ORO_SCHED_RT"
-                    else "ORO_SCHED_OTHER"
+                    else
+                        "ORO_SCHED_OTHER"
                     end
                 end
 
@@ -56,13 +57,15 @@ module OroGen
             class Deployment < Spec::Deployment
                 def task(name, klass)
                     name = OroGen.verify_valid_identifier(name)
-                    if klass.respond_to?(:to_str)
-                        task_context = project.task_model_from_name(klass)
-                    else task_context = klass
-                    end
+                    task_context = if klass.respond_to?(:to_str)
+                                       project.task_model_from_name(klass)
+                                   else
+                                       klass
+                                   end
 
                     if task_context.abstract?
-                        raise ArgumentError, "cannot create a deployment for #{task_context.name}, as it is abstract"
+                        raise ArgumentError,
+                              "cannot create a deployment for #{task_context.name}, as it is abstract"
                     end
 
                     super(name, task_context)
@@ -83,7 +86,6 @@ module OroGen
                 def self.register_global_initializer(key,
                     global_scope: "", init: "", exit: "",
                     tasks_cmake: "", deployment_cmake: "")
-
                     Spec::Deployment.register_global_initializer(key)
                     @available_global_cpp_initializers[key] = GlobalInitializer.new(
                         global_scope, init, exit, tasks_cmake, deployment_cmake
@@ -200,9 +202,13 @@ module OroGen
                     # Task files could be using headers from external libraries, so add the relevant
                     # directory in our include path
                     project.tasklib_dependencies
-                           .find_all { |builddep| builddep.in_context?("core", "include") }
+                           .find_all do |builddep|
+                        builddep.in_context?("core",
+                                             "include")
+                    end
                            .each do |builddep|
-                        builddep = BuildDependency.new(builddep.var_name, builddep.pkg_name)
+                        builddep = BuildDependency.new(builddep.var_name,
+                                                       builddep.pkg_name)
                         builddep.in_context("core", "include")
                         result << builddep
                     end
@@ -219,11 +225,12 @@ module OroGen
                         !task.project.orogen_project?
                     end
 
-                    dependencies = Hash.new
+                    dependencies = {}
                     task_models.each do |model|
                         if (p = dependencies[model.project.name])
                             if p != model.project
-                                raise InternalError, "found two Project objects that seem to refer to the same project: #{p.name}"
+                                raise InternalError,
+                                      "found two Project objects that seem to refer to the same project: #{p.name}"
                             end
                         else
                             dependencies[model.project.name] = model.project
@@ -234,10 +241,10 @@ module OroGen
 
                 def to_deployer_xml
                     result = []
-                    result << <<-EOHEADER
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE properties SYSTEM "cpf.dtd">
-<properties>
+                    result << <<~EOHEADER
+                        <?xml version="1.0" encoding="UTF-8"?>
+                        <!DOCTYPE properties SYSTEM "cpf.dtd">
+                        <properties>
                     EOHEADER
                     used_typekits.each do |tk|
                         next if tk.virtual?

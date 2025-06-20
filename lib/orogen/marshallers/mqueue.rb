@@ -5,6 +5,7 @@ module OroGen
         module MQueue
             class Plugin
                 attr_reader :typekit
+
                 def initialize(typekit)
                     @typekit = typekit
                     Typelib::Type.extend(TypekitMarshallers::MQueue::Type)
@@ -48,9 +49,7 @@ module OroGen
                         needs_link = typekit.linked_used_libraries.include?(pkg)
                         result << Gen::RTT_CPP::BuildDependency.new(pkg.name.upcase, pkg.name)
                                                                .in_context("mqueue", "include")
-                        if needs_link
-                            result.last.in_context("mqueue", "link")
-                        end
+                        result.last.in_context("mqueue", "link") if needs_link
                     end
                     result
                 end
@@ -67,21 +66,27 @@ module OroGen
                     headers = []
                     impl = []
 
-                    code = Gen::RTT_CPP.render_template "typekit", "mqueue", "TransportPlugin.hpp", binding
+                    code = Gen::RTT_CPP.render_template "typekit", "mqueue",
+                                                        "TransportPlugin.hpp", binding
                     headers << typekit.save_automatic("transports", "mqueue",
                                                       "TransportPlugin.hpp", code)
-                    code = Gen::RTT_CPP.render_template "typekit", "mqueue", "TransportPlugin.cpp", binding
+                    code = Gen::RTT_CPP.render_template "typekit", "mqueue",
+                                                        "TransportPlugin.cpp", binding
                     impl << typekit.save_automatic("transports", "mqueue",
                                                    "TransportPlugin.cpp", code)
 
                     code_snippets = typesets.interface_types.map do |type|
-                        code = Gen::RTT_CPP.render_template "typekit", "mqueue", "Type.cpp", binding
+                        code = Gen::RTT_CPP.render_template "typekit", "mqueue",
+                                                            "Type.cpp", binding
                         [type, code]
                     end
-                    impl += typekit.render_typeinfo_snippets(code_snippets, "transports", "mqueue")
+                    impl += typekit.render_typeinfo_snippets(code_snippets, "transports",
+                                                             "mqueue")
 
-                    code = Gen::RTT_CPP.render_template "typekit", "mqueue", "Registration.hpp", binding
-                    typekit.save_automatic("transports", "mqueue", "Registration.hpp", code)
+                    code = Gen::RTT_CPP.render_template "typekit", "mqueue",
+                                                        "Registration.hpp", binding
+                    typekit.save_automatic("transports", "mqueue", "Registration.hpp",
+                                           code)
 
                     impl = impl.map do |path|
                         typekit.cmake_relative_path(path, "transports", "mqueue")
@@ -90,9 +95,12 @@ module OroGen
                         typekit.cmake_relative_path(path, "transports", "mqueue")
                     end
 
-                    pkg_config = Gen::RTT_CPP.render_template "typekit", "mqueue", "transport-mqueue.pc", binding
-                    typekit.save_automatic("transports", "mqueue", "#{typekit.name}-transport-mqueue.pc.in", pkg_config)
-                    code = Gen::RTT_CPP.render_template "typekit", "mqueue", "CMakeLists.txt", binding
+                    pkg_config = Gen::RTT_CPP.render_template "typekit", "mqueue",
+                                                              "transport-mqueue.pc", binding
+                    typekit.save_automatic("transports", "mqueue",
+                                           "#{typekit.name}-transport-mqueue.pc.in", pkg_config)
+                    code = Gen::RTT_CPP.render_template "typekit", "mqueue",
+                                                        "CMakeLists.txt", binding
                     typekit.save_automatic("transports", "mqueue", "CMakeLists.txt", code)
 
                     # We generate our own CMake code, no need to export anything to the

@@ -7,9 +7,7 @@ module OroGen
                 m = dup
                 m.instance_variable_set :@name, name
                 if type
-                    if type.respond_to?(:to_str)
-                        type = task.project.find_type(type)
-                    end
+                    type = task.project.find_type(type) if type.respond_to?(:to_str)
                     m.instance_variable_set :@type, type
                 end
                 m
@@ -26,7 +24,7 @@ module OroGen
             end
 
             def pretty_print(pp)
-                pp.text "[dyn,#{self.class < InputPort ? "in" : "out"}]#{name}:#{type ? type.name : "any type"}"
+                pp.text "[dyn,#{self.class < InputPort ? 'in' : 'out'}]#{name}:#{type ? type.name : 'any type'}"
             end
         end
 

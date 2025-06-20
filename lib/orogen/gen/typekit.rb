@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # frozen_string_literal: true
 
 require "typelib"
@@ -28,20 +27,21 @@ module Typelib
         def self.normalize_typename_part(name)
             # Remove all trailing array modifiers first
             if name =~ /(.*)(\[\d+\]+)$/
-                name = $1
-                array_modifiers = $2
+                name = ::Regexp.last_match(1)
+                array_modifiers = ::Regexp.last_match(2)
             end
 
             name, template_arguments = Typelib::CXX.parse_template(name)
             template_arguments.map! do |arg|
                 if arg !~ /^\d+$/ && arg[0, 1] != "/"
                     "/#{arg}"
-                else arg
+                else
+                    arg
                 end
             end
 
             if !template_arguments.empty?
-                "#{name}<#{template_arguments.join(",")}>#{array_modifiers}"
+                "#{name}<#{template_arguments.join(',')}>#{array_modifiers}"
             else
                 "#{name}#{array_modifiers}"
             end
@@ -49,12 +49,13 @@ module Typelib
 
         def self.normalize_cxxname(name)
             if name =~ /::/
-                raise Orocos::Generation::InternalError, "normalize_cxxname called with a C++ type name (#{name})"
+                raise Orocos::Generation::InternalError,
+                      "normalize_cxxname called with a C++ type name (#{name})"
             end
 
             if name =~ /(.*)((?:\[\d+\])+)$/
-                name = $1
-                suffix = $2
+                name = ::Regexp.last_match(1)
+                suffix = ::Regexp.last_match(2)
             else
                 suffix = ""
             end
@@ -73,20 +74,20 @@ module Typelib
             name, template_arguments = Typelib::CXX.parse_template(name)
 
             name = name.gsub("/", "::")
-            if name =~ /^::(.*)/
-                name = $1
-            end
+            name = ::Regexp.last_match(1) if name =~ /^::(.*)/
 
             if !template_arguments.empty?
                 template_arguments.map! do |arg|
                     if arg !~ /^\d+$/
                         normalize_cxxname(arg)
-                    else arg
+                    else
+                        arg
                     end
                 end
 
-                "#{name}< #{template_arguments.join(", ")} >"
-            else name
+                "#{name}< #{template_arguments.join(', ')} >"
+            else
+                name
             end
         end
 
@@ -116,16 +117,17 @@ module Typelib
 
         def self.method_name(fullname = true)
             base = if fullname then full_name("_", true)
-                   else basename("_")
+                   else
+                       basename("_")
                    end
-            base.gsub(/[<>\[\]\*, ]/) { |s| MARKER_TO_METHOD_STRING[s] }
+            base.gsub(/[<>\[\]*, ]/) { |s| MARKER_TO_METHOD_STRING[s] }
         end
 
         def self.contains_int64?
             dependencies.any?(&:contains_int64?)
         end
 
-        @@index_var_stack = Array.new
+        @@index_var_stack = []
         def self.index_var_stack
             @@index_var_stack
         end
@@ -157,7 +159,7 @@ module Typelib
     end
 
     class ContainerType
-        def self.to_m_type(target_basename, typekit)
+        def self.to_m_type(_target_basename, typekit)
             target_cxxname = typekit.intermediate_cxxname_for(deference)
             "struct __gccxml_workaround_#{method_name(true)} {\n  #{container_cxx_kind}< #{target_cxxname[0]}#{target_cxxname[1]} > instanciate;\n};\n" +
                 "typedef #{container_cxx_kind}< #{target_cxxname[0]}#{target_cxxname[1]} > orogen_typekits_mtype_#{method_name(true)};"
@@ -167,7 +169,8 @@ module Typelib
             normalize_cxxname(container_kind)
         end
 
-        def self.code_copy(typekit, result, indent, dest, src, method, src_type, dest_type)
+        def self.code_copy(_typekit, result, indent, dest, src, method, src_type,
+            dest_type)
             element_type = deference.name
             element_type = registry.build(element_type)
 
@@ -176,9 +179,9 @@ module Typelib
                 result << "#{indent}#{dest}.reserve(#{src}.size());\n"
             end
 
-            result << <<-EOT
-#{indent}for(#{src_type.cxx_name}::const_iterator it = #{src}.begin(); it != #{src}.end(); ++it)
-#{indent}{
+            result << <<~EOT
+                #{indent}for(#{src_type.cxx_name}::const_iterator it = #{src}.begin(); it != #{src}.end(); ++it)
+                #{indent}{
             EOT
 
             if yield(element_type)
@@ -192,20 +195,22 @@ module Typelib
         end
 
         def self.to_intermediate(typekit, result, indent)
-            code_copy(typekit, result, indent, "intermediate", "value", "toIntermediate", self, typekit.intermediate_type_for(self)) do |type|
+            code_copy(typekit, result, indent, "intermediate", "value", "toIntermediate",
+                      self, typekit.intermediate_type_for(self)) do |type|
                 !type.contains_opaques?
             end
         end
 
         def self.from_intermediate(typekit, result, indent)
-            code_copy(typekit, result, indent, "value", "intermediate", "fromIntermediate", typekit.intermediate_type_for(self), self) do |type|
+            code_copy(typekit, result, indent, "value", "intermediate",
+                      "fromIntermediate", typekit.intermediate_type_for(self), self) do |type|
                 !type.contains_opaques?
             end
         end
     end
 
     class EnumType
-        def self.to_string(typekit, result, indent)
+        def self.to_string(_typekit, result, indent)
             seen_values = Set.new
             result << indent << "std::string enum_name;\n"
             result << indent << "switch(value) {\n"
@@ -219,11 +224,11 @@ module Typelib
                 result << "#{indent}      break;\n"
             end
 
-            result << <<-EOT
-#{indent}    default:
-#{indent}        RTT::log(RTT::Error) << "invalid value '" << (int)value << "' for enum '#{cxx_name}'" << RTT::endlog();
-#{indent}        return false;
-#{indent}}
+            result << <<~EOT
+                #{indent}    default:
+                #{indent}        RTT::log(RTT::Error) << "invalid value '" << (int)value << "' for enum '#{cxx_name}'" << RTT::endlog();
+                #{indent}        return false;
+                #{indent}}
             EOT
             result
         end
@@ -243,22 +248,22 @@ module Typelib
                 "#{field_cxxname[0]} #{field_name} #{field_cxxname[1]};"
             end
 
-            <<-EOCODE
-struct #{target_basename}
-{
-    #{fields.join("\n  ")}
-};
+            <<~EOCODE
+                struct #{target_basename}
+                {
+                    #{fields.join("\n  ")}
+                };
             EOCODE
         end
 
-        def self.code_copy(typekit, result, indent, dest, src, method, error_handling)
+        def self.code_copy(_typekit, result, indent, dest, src, method, error_handling)
             each_field do |field_name, field_type|
                 if (string = yield(field_name, field_type))
-                    if !string.respond_to?(:to_str)
-                        result << "#{indent}#{dest}.#{field_name} = #{src}.#{field_name};\n"
-                    else
-                        result << string
-                    end
+                    result << if !string.respond_to?(:to_str)
+                                  "#{indent}#{dest}.#{field_name} = #{src}.#{field_name};\n"
+                              else
+                                  string
+                              end
                 else
                     s_src  = "#{src}.#{field_name}"
                     s_dest = "#{dest}.#{field_name}"
@@ -270,28 +275,32 @@ struct #{target_basename}
                         end
                     end
 
-                    if error_handling
-                        result << "#{indent}if (!#{method}(#{s_dest}, #{s_src})) return false;\n"
-                    else
-                        result << "#{indent}#{method}(#{s_dest}, #{s_src});\n"
-                    end
+                    result << if error_handling
+                                  "#{indent}if (!#{method}(#{s_dest}, #{s_src})) return false;\n"
+                              else
+                                  "#{indent}#{method}(#{s_dest}, #{s_src});\n"
+                              end
                 end
             end
             result
         end
 
         def self.to_intermediate(typekit, result, indent)
-            code_copy(typekit, result, indent, "intermediate", "value", "toIntermediate", false) do |field_name, field_type|
+            code_copy(typekit, result, indent, "intermediate", "value", "toIntermediate",
+                      false) do |field_name, field_type|
                 unless field_type.contains_opaques?
-                    field_type.code_assign([], indent + "    ", "intermediate.#{field_name}", "value.#{field_name}").join
+                    field_type.code_assign([], indent + "    ",
+                                           "intermediate.#{field_name}", "value.#{field_name}").join
                 end
             end
         end
 
         def self.from_intermediate(typekit, result, indent)
-            code_copy(typekit, result, indent, "value", "intermediate", "fromIntermediate", false) do |field_name, field_type|
+            code_copy(typekit, result, indent, "value", "intermediate",
+                      "fromIntermediate", false) do |field_name, field_type|
                 unless field_type.contains_opaques?
-                    field_type.code_assign([], indent + "    ", "value.#{field_name}", "intermediate.#{field_name}").join
+                    field_type.code_assign([], indent + "    ", "value.#{field_name}",
+                                           "intermediate.#{field_name}").join
                 end
             end
         end
@@ -313,30 +322,31 @@ struct #{target_basename}
 
         def self.code_assign(result, indent, dest, src)
             allocate_index do |i|
-                result << <<-EOT
-#{indent}for(int #{i} = 0; #{i} < #{length}; ++#{i})
-#{indent}{
+                result << <<~EOT
+                    #{indent}for(int #{i} = 0; #{i} < #{length}; ++#{i})
+                    #{indent}{
                 EOT
-                deference.code_assign(result, "#{indent}  ", "#{dest}[#{i}]", "#{src}[#{i}]")
+                deference.code_assign(result, "#{indent}  ", "#{dest}[#{i}]",
+                                      "#{src}[#{i}]")
                 result << "#{indent}}"
             end
         end
 
-        def self.code_copy(typekit, result, indent, dest, src, method)
+        def self.code_copy(_typekit, result, indent, dest, src, method)
             element_type = registry.build(deference.name)
 
             allocate_index do |i|
-                result << <<-EOT
-#{indent}for(int #{i} = 0; #{i} < length; ++#{i})
-#{indent}{
+                result << <<~EOT
+                    #{indent}for(int #{i} = 0; #{i} < length; ++#{i})
+                    #{indent}{
                 EOT
 
                 if (string = yield(element_type, indent, "#{dest}[#{i}]", "#{src}[#{i}]"))
-                    if !string.respond_to?(:to_str)
-                        result << "#{indent}  #{dest}[#{i}] = #{src}[#{i}];\n"
-                    else
-                        result << string
-                    end
+                    result << if !string.respond_to?(:to_str)
+                                  "#{indent}  #{dest}[#{i}] = #{src}[#{i}];\n"
+                              else
+                                  string
+                              end
                 else
                     s_src  = "#{src}[#{i}]"
                     s_dest = "#{dest}[#{i}]"
@@ -357,18 +367,16 @@ struct #{target_basename}
         end
 
         def self.to_intermediate(typekit, result, indent)
-            code_copy(typekit, result, indent, "intermediate", "value", "toIntermediate") do |type, indent, dest, src|
-                unless type.contains_opaques?
-                    type.code_assign([], indent, dest, src).join
-                end
+            code_copy(typekit, result, indent, "intermediate", "value",
+                      "toIntermediate") do |type, indent, dest, src|
+                type.code_assign([], indent, dest, src).join unless type.contains_opaques?
             end
         end
 
         def self.from_intermediate(typekit, result, indent)
-            code_copy(typekit, result, indent, "value", "intermediate", "fromIntermediate") do |type, indent, dest, src|
-                unless type.contains_opaques?
-                    type.code_assign([], indent, dest, src).join
-                end
+            code_copy(typekit, result, indent, "value", "intermediate",
+                      "fromIntermediate") do |type, indent, dest, src|
+                type.code_assign([], indent, dest, src).join unless type.contains_opaques?
             end
         end
     end
@@ -385,15 +393,15 @@ module OroGen
             def self.create_or_update_symlink(source, target)
                 if File.exist?(target)
                     unless File.symlink?(target)
-                        raise ConfigError, "#{target} was expected to be a symbolic link, but is not"
+                        raise ConfigError,
+                              "#{target} was expected to be a symbolic link, but is not"
                     end
 
                     pointed_to = File.readlink(target)
-                    if pointed_to == target
-                        return
-                    else
-                        FileUtils.rm_f target
-                    end
+                    return if pointed_to == target
+
+                    FileUtils.rm_f target
+
                 end
                 FileUtils.mkdir_p(File.dirname(target))
                 FileUtils.ln_sf(source, target)
@@ -435,22 +443,26 @@ module OroGen
                                 result
                             elsif type.name =~ /_m$/
                                 find_type(type.name.gsub(/_m$/, ""))
-                            else raise Typelib::NotFound
+                            else
+                                raise Typelib::NotFound
                             end
                         rescue Typelib::NotFound
                             # This is a pretty expensive operation and is seldom
                             # needed, so avoid doing it unnecessarily
-                            @intermediate_to_opaque ||= Hash.new
+                            @intermediate_to_opaque ||= {}
                             @indexed_intermediates ||= Set.new
                             registry.each do |t|
                                 if !@indexed_intermediates.include?(t) && t.contains_opaques?
                                     @indexed_intermediates << t
-                                    @intermediate_to_opaque[intermediate_type_name_for(t)] = t
+                                    @intermediate_to_opaque[intermediate_type_name_for(t)] =
+                                        t
                                 end
                             end
                             @intermediate_to_opaque[type.name]
                         end
-                    elsif (opaque_def = opaques.find { |spec| find_type(spec.intermediate, true).eql? type })
+                    elsif (opaque_def = opaques.find do |spec|
+                        find_type(spec.intermediate, true).eql? type
+                    end)
                         opaque_def.type
                     end
                 end
@@ -477,11 +489,12 @@ module OroGen
                         else
                             path = Typelib.split_typename(type.name)
                             path.map! do |p|
-                                p.gsub(/[<>\[\], \/]/, "_")
+                                p.gsub(%r{[<>\[\], /]}, "_")
                             end
                             "/" + path.join("/") + "_m"
                         end
-                    else type.name
+                    else
+                        type.name
                     end
                 end
 
@@ -505,14 +518,10 @@ module OroGen
                 # Checks if a type is an oroGen-generated type used as an
                 # intermediate
                 def m_type?(type)
-                    if type.name =~ /_m$/
-                        return true
-                    end
+                    return true if type.name =~ /_m$/
 
                     if type.respond_to?(:deference)
-                        while type.respond_to?(:deference)
-                            type = type.deference
-                        end
+                        type = type.deference while type.respond_to?(:deference)
                         m_type?(type)
                     else
                         false
@@ -555,7 +564,8 @@ module OroGen
 
                 def initialize(type, intermediate, options, code_generator)
                     if !type || !intermediate
-                        raise ArgumentError, "trying to create an opaque definition with nil types"
+                        raise ArgumentError,
+                              "trying to create an opaque definition with nil types"
                     end
 
                     @type = type
@@ -601,9 +611,7 @@ module OroGen
                 # types to be registered, even the ones that can't be used in the
                 # interfaces
                 attr_accessor :interface_types
-                attr_accessor :minimal_registry
-                attr_accessor :opaque_types
-                attr_accessor :aliases
+                attr_accessor :minimal_registry, :opaque_types, :aliases
             end
 
             # Support for typekit generation in oroGen
@@ -611,7 +619,7 @@ module OroGen
                 class << self
                     attr_reader :plugins
                 end
-                @plugins = Hash.new
+                @plugins = {}
 
                 def standalone?
                     !project
@@ -638,9 +646,9 @@ module OroGen
                 # Changes the typekit base directory
                 def base_dir=(path)
                     @base_dir = path
-                    if path
-                        include_dirs << path
-                    end
+                    return unless path
+
+                    include_dirs << path
                 end
 
                 INCLUDE_DIR_NAME = "types"
@@ -648,9 +656,9 @@ module OroGen
                 # Change the directory into which the code generation should be done
                 def automatic_dir=(path)
                     @automatic_dir = path
-                    if path
-                        include_dirs << File.join(automatic_dir, INCLUDE_DIR_NAME)
-                    end
+                    return unless path
+
+                    include_dirs << File.join(automatic_dir, INCLUDE_DIR_NAME)
                 end
 
                 # Full path to the directory in which includes are either generated
@@ -705,11 +713,13 @@ module OroGen
                 dsl_attribute :type_export_policy do |new_policy|
                     new_policy = new_policy.to_sym
                     unless TYPE_EXPORT_POLICIES.include?(new_policy)
-                        raise ArgumentError, "invalid type export policy #{new_policy.inspect}, allowed are: :#{TYPE_EXPORT_POLICIES.join(", :")}"
+                        raise ArgumentError,
+                              "invalid type export policy #{new_policy.inspect}, allowed are: :#{TYPE_EXPORT_POLICIES.join(', :')}"
                     end
 
                     if new_policy == :used && !project
-                        raise ArgumentError, "cannot use a 'used' policy on a standalone typekit"
+                        raise ArgumentError,
+                              "cannot use a 'used' policy on a standalone typekit"
                     end
 
                     new_policy
@@ -725,16 +735,7 @@ module OroGen
                 rescue Typelib::NotFound => e
                     raise ConfigError, e.message, e.backtrace
                 end
-
-                attr_reader :selected_types
-
-                attr_reader :registry
-                attr_reader :imported_types
                 attr_accessor :imported_typelist
-                attr_reader :imported_typekits
-
-                attr_reader :used_libraries
-                attr_reader :linked_used_libraries
 
                 # Returns the set of opaque definitions that are known by the
                 # typekit
@@ -745,10 +746,6 @@ module OroGen
                 def self_opaques
                     opaques.find_all { |opdef| !imported_type?(opdef.type) }
                 end
-
-                attr_reader :opaque_registry
-                attr_reader :pending_load_options
-                attr_reader :pending_loads
 
                 def using_typekit(typekit)
                     imported_types.merge(typekit.registry)
@@ -761,31 +758,31 @@ module OroGen
                     imported_typekits << typekit
                 end
 
-                def using_library(library, options = Hash.new)
+                def using_library(library, options = {})
                     if library.respond_to?(:to_str)
                         library = Utilrb::PkgConfig.new(library)
                     end
 
-                    options = Kernel.validate_options options, :link => true
+                    options = Kernel.validate_options options, link: true
                     used_libraries << library
                     self.include_dirs |= library.include_dirs.to_set
-                    if options[:link]
-                        linked_used_libraries << library
-                    end
+                    return unless options[:link]
+
+                    linked_used_libraries << library
                 end
 
                 # Returns the typekit object that defines this type
                 def imported_typekits_for(typename)
-                    if typename.respond_to?(:name)
-                        typename = typename.name
-                    end
+                    typename = typename.name if typename.respond_to?(:name)
                     imported_typekits.find_all { |tk| tk.includes?(typename) }
                 end
 
                 # Returns true if +typename+ has been defined by a typekit imported
                 # by using_typekit
                 def imported_type?(typename)
-                    !selected_types.find { |t| t.name == typename } && !imported_typekits_for(typename).empty?
+                    !selected_types.find do |t|
+                        t.name == typename
+                    end && !imported_typekits_for(typename).empty?
                 end
 
                 # Returns true if +typename+ can be used on a task context interface
@@ -799,7 +796,7 @@ module OroGen
                     registry.build(type_name)
                 rescue Typelib::NotFound
                     if type_name =~ /(.*)\[(\d+)\]$/
-                        base_type = $1
+                        base_type = ::Regexp.last_match(1)
                         find_type(base_type, true)
                         return registry.build(type_name)
                     end
@@ -808,13 +805,13 @@ module OroGen
                     if template_arguments.size == 1
                         element_type = find_type(template_arguments[0], true)
                         project&.registry&.create_container(container_name,
-                                                            project.find_type(element_type.name, true))
+                                                            project.find_type(
+                                                                element_type.name, true
+                                                            ))
                         registry.create_container(container_name, element_type)
 
                     elsif project && (type = project.registry.build(type_name))
-                        while type.respond_to?(:deference)
-                            type = type.deference
-                        end
+                        type = type.deference while type.respond_to?(:deference)
 
                         type_def = project.registry.minimal(type.name)
                         registry.merge(type_def)
@@ -836,7 +833,7 @@ module OroGen
                             registry.get(type_name)
                         rescue Typelib::NotFound
                             new_type = build_type(type_name)
-                            compute_orogen_include_on_type(new_type, Hash.new)
+                            compute_orogen_include_on_type(new_type, {})
                             new_type
                         end
                     elsif type.kind_of?(Class) && type <= Typelib::Type
@@ -845,13 +842,14 @@ module OroGen
                             registry.merge(type_def)
                             project&.registry&.merge(type_def)
                             new_type = registry.get(type.name)
-                            compute_orogen_include_on_type(new_type, Hash.new)
+                            compute_orogen_include_on_type(new_type, {})
                             new_type
                         else
                             registry.get(type.name)
                         end
                     else
-                        raise ArgumentError, "expected a type object or a type name, but got #{type} (#{type.class})"
+                        raise ArgumentError,
+                              "expected a type object or a type name, but got #{type} (#{type.class})"
                     end
                 rescue Typelib::NotFound => e
                     unless pending_loads.empty?
@@ -890,7 +888,7 @@ module OroGen
                     @project = project
 
                     @include_dirs = Set.new
-                    @included_files = Array.new
+                    @included_files = []
 
                     @plugins = []
                     plugins << TypekitMarshallers::TypeInfo::Plugin.new(self)
@@ -907,7 +905,7 @@ module OroGen
                     @linked_used_libraries = []
 
                     @opaque_registry    = Typelib::Registry.new
-                    @opaques            = Array.new
+                    @opaques            = []
                     @loaded_files_dirs  = Set.new
                     @pending_load_options = []
                     # The order matters ! GCCXML unfortunately gave as file names
@@ -917,7 +915,7 @@ module OroGen
                     # clang-based importer
                     #
                     # In other words, keep pending_loads an array
-                    @pending_loads        = Array.new
+                    @pending_loads        = []
 
                     @cxx_standard = nil
 
@@ -935,9 +933,10 @@ module OroGen
                         if plg.name == transport_name
                             if plg.respond_to?(:plugin_name)
                                 return plg.plugin_name(typekit_name)
-                            else
-                                return "orogen_typekits::#{typekit_name}#{transport_name.capitalize}TransportPlugin"
                             end
+
+                            return "orogen_typekits::#{typekit_name}#{transport_name.capitalize}TransportPlugin"
+
                         end
                     end
                     raise ArgumentError, "invalid transport name #{transport_name}"
@@ -978,11 +977,11 @@ module OroGen
                 # +name+
                 # @see find_plugin
                 def plugin(name)
-                    if (plg = find_plugin(name))
-                        plg
-                    else
+                    unless (plg = find_plugin(name))
                         raise ArgumentError, "there is no plugin called #{name}"
                     end
+
+                    plg
                 end
 
                 # Enumerate all enabled plugins. See #enable_plugin
@@ -1009,18 +1008,18 @@ module OroGen
                 #
                 # The Typekit#ro_ptr and Typekit#shared_ptr shortcuts are defined
                 # for boost::shared_ptr and RTT::ReadOnlyPointer.
-                def smart_ptr(ptr_name, base_type, options = Hash.new)
+                def smart_ptr(ptr_name, base_type, options = {})
                     typekit = self
                     # create a validated options-hash
                     options = Kernel.validate_options options,
                                                       # just the plain name of the header like "path/Header.hpp"
-                                                      :include => [],
+                                                      include: [],
                                                       # additional pkg-config info like "pkg-config-name:path/Header.hpp"
-                                                      :orogen_include => []
+                                                      orogen_include: []
                     # create opaque
                     opaque = opaque_type("#{ptr_name}<#{base_type.name}>",
                                          base_type,
-                                         options.merge(:needs_copy => false)) do |from, into|
+                                         options.merge(needs_copy: false)) do |from, into|
                         # create code from template
                         Generation.render_template("typekit/smart_ptr.cpp", binding)
                     end
@@ -1042,7 +1041,7 @@ module OroGen
                     # the empty case.
                     options[:include].each do |inc|
                         included_files << inc
-                        # note that the "opaque_type()" factory-function used
+                        # NOTE: that the "opaque_type()" factory-function used
                         # previously to create the opaque for the ro_ptr will take
                         # care that this header is added to the "orogen_include"
                         # metadata as well
@@ -1066,8 +1065,8 @@ module OroGen
                 # for the given type.
                 #
                 # See #smart_ptr for more information.
-                def ro_ptr(name, options = Hash.new)
-                    options[:orogen_include] ||= Array.new
+                def ro_ptr(name, options = {})
+                    options[:orogen_include] ||= []
                     options[:orogen_include] << "orocos-rtt-#{RTT_CPP.orocos_target}:rtt/extras/ReadOnlyPointer.hpp"
                     smart_ptr("/RTT/extras/ReadOnlyPointer", find_type(name), options)
                 end
@@ -1076,8 +1075,8 @@ module OroGen
                 # for the given type.
                 #
                 # See #smart_ptr for more information.
-                def shared_ptr(name, options = Hash.new)
-                    options[:orogen_include] ||= Array.new
+                def shared_ptr(name, options = {})
+                    options[:orogen_include] ||= []
                     # actually we would need to add a pkg-config name in front of
                     # the ":", but boost does _still_ not have pkg-config...
                     options[:orogen_include] << ":boost/shared_ptr.hpp"
@@ -1131,12 +1130,13 @@ module OroGen
                 # to take ownership on that value, in which case it has to return
                 # true. If the function returns false, then the sample is deleted after
                 # the method call.
-                def opaque_type(base_type, intermediate_type, options = Hash.new, &convert_code_generator)
+                def opaque_type(base_type, intermediate_type, options = {},
+                    &convert_code_generator)
                     options = Kernel.validate_options options,
-                                                      :include => [],
-                                                      :includes => [],
-                                                      :orogen_include => [],
-                                                      :needs_copy => true
+                                                      include: [],
+                                                      includes: [],
+                                                      orogen_include: [],
+                                                      needs_copy: true
 
                     if options[:includes].respond_to?(:to_str)
                         options[:includes] = [options[:includes]]
@@ -1154,7 +1154,9 @@ module OroGen
                         intermediate_type = Typelib::Type.normalize_typename(intermediate_type)
                     end
 
-                    typedef = "<typelib><opaque name=\"#{base_type.gsub('<', '&lt;').gsub('>', '&gt;')}\" size=\"0\" /></typelib>"
+                    typedef = "<typelib><opaque name=\"#{base_type.gsub('<', '&lt;').gsub(
+                        '>', '&gt;'
+                    )}\" size=\"0\" /></typelib>"
                     opaque_def = Typelib::Registry.from_xml(typedef)
                     opaque_registry.merge opaque_def
                     registry.merge opaque_def
@@ -1195,13 +1197,12 @@ module OroGen
                         # If the type is within a subdirectory called as the
                         # typekit, remove the duplicate
                         elements = rel.each_filename.to_a
-                        if elements.first != name
-                            elements.unshift name
-                        end
+                        elements.unshift name if elements.first != name
                         target = File.join(includes_dir, *elements)
                         Generation.create_or_update_symlink(file, target)
                         target
-                    else file
+                    else
+                        file
                     end
                 end
 
@@ -1231,15 +1232,17 @@ module OroGen
                 # the exact offsets for all the fields in the structures).
                 #
                 # @raise LoadError if the file does not exist
-                def load(file, add = true, user_options = Hash.new)
+                def load(file, add = true, user_options = {})
                     unless user_options.respond_to?(:to_hash)
-                        raise ArgumentError, "expected an option has as third argument, got #{user_options.inspect}"
+                        raise ArgumentError,
+                              "expected an option has as third argument, got #{user_options.inspect}"
                     end
 
-                    if (match = /(\w+)\/Types\.hpp$/.match(file))
+                    if (match = %r{(\w+)/Types\.hpp$}.match(file))
                         project_name = match[1]
                         if project.has_typekit?(project_name) || project.name == project_name
-                            raise ArgumentError, "cannot use a header called #{file} as it clashes with the Types.hpp header generated by orogen for the #{project_name} project"
+                            raise ArgumentError,
+                                  "cannot use a header called #{file} as it clashes with the Types.hpp header generated by orogen for the #{project_name} project"
                         end
                     end
 
@@ -1250,9 +1253,12 @@ module OroGen
                         if File.file?(file) # Local file
                             File.expand_path(file)
                         else # File from used libraries/task libraries
-                            dir = include_dirs.find { |dir| File.file?(File.join(dir, file)) }
+                            dir = include_dirs.find do |dir|
+                                File.file?(File.join(dir, file))
+                            end
                             unless dir
-                                raise LoadError, "cannot find #{file} in #{include_dirs.to_a.join(":")}"
+                                raise LoadError,
+                                      "cannot find #{file} in #{include_dirs.to_a.join(':')}"
                             end
 
                             loaded_files_dirs << dir
@@ -1270,21 +1276,21 @@ module OroGen
                     all_cflags = used_libraries
                                  .map(&:raw_cflags_only_other)
                                  .flatten.uniq
-                    (all_stdcxxflags, all_other_flags) = all_cflags.partition { |flag| flag =~ /^-std=.*\+\+/ }
+                    (all_stdcxxflags, all_other_flags) = all_cflags.partition do |flag|
+                        flag =~ /^-std=.*\+\+/
+                    end
                     user_options[:rawflags] = all_other_flags
                     if cxx_standard
                         user_options[:rawflags].push "-std=#{cxx_standard}"
                     else
                         if all_stdcxxflags.length > 1
-                            RTT_CPP.warn "While loading library #{file}, found conflicting c++ standard requirements(#{all_stdcxxflags.join(", ")}). please specify a desired standard in the .orogen file using cxx_standard \"c++xy\", or calculate one from the used libraries: cxx_standard maximum_library_cxx_standard"
+                            RTT_CPP.warn "While loading library #{file}, found conflicting c++ standard requirements(#{all_stdcxxflags.join(', ')}). please specify a desired standard in the .orogen file using cxx_standard \"c++xy\", or calculate one from the used libraries: cxx_standard maximum_library_cxx_standard"
                         end
                         user_options[:rawflags].concat all_stdcxxflags
                     end
 
                     this_options = [add, user_options]
-                    if pending_load_options != this_options
-                        perform_pending_loads
-                    end
+                    perform_pending_loads if pending_load_options != this_options
 
                     @pending_load_options = this_options
                     pending_loads << file
@@ -1340,7 +1346,7 @@ module OroGen
                     # Find the base include
                     include_candidates = include_path.map do |inc|
                         rel = file.relative_path_from(inc).cleanpath.to_path
-                        rel if rel !~ /^\.\.\//
+                        rel if rel !~ %r{^\.\./}
                     end.compact
 
                     if include_candidates.empty?
@@ -1381,12 +1387,11 @@ module OroGen
                     # 'Types with deference' are vectors and arrays. Arrays
                     # are ignored. Vectors are hardcoded to :vector
                     if type.respond_to?(:deference)
-                        deference_includes = orogen_include_of_type(type.deference, file_to_include)
+                        deference_includes = orogen_include_of_type(type.deference,
+                                                                    file_to_include)
                         # if the type used in the opaque/ro_ptr/container has no
                         # include, the container doesn't need one as well?
-                        unless deference_includes
-                            return
-                        end
+                        return unless deference_includes
 
                         container_includes = []
                         if type <= Typelib::ContainerType
@@ -1395,7 +1400,8 @@ module OroGen
                             elsif type.container_kind == "/std/vector"
                                 container_includes = [":vector"]
                             else
-                                raise ArgumentError, "unexpected container type #{type.container_kind}"
+                                raise ArgumentError,
+                                      "unexpected container type #{type.container_kind}"
                             end
                         end
                         container_includes + deference_includes
@@ -1403,7 +1409,8 @@ module OroGen
                         []
                     elsif type <= Typelib::NumericType
                         if type.integer? then [":boost/cstdint.hpp"]
-                        else []
+                        else
+                            []
                         end
                     elsif (existing = existing_orogen_include_for_type(type))
                         existing
@@ -1421,7 +1428,9 @@ module OroGen
 
                         if (orogen_include = file_to_include[file][Integer(line)])
                             ["#{name}:#{orogen_include}"]
-                        else raise ArgumentError, "no entry for '#{file}:#{line}' in the provided file-to-include mapping of typekit '#{name}'"
+                        else
+                            raise ArgumentError,
+                                  "no entry for '#{file}:#{line}' in the provided file-to-include mapping of typekit '#{name}'"
                         end
                     end
                 end
@@ -1433,7 +1442,9 @@ module OroGen
                     elsif has_pending_loads?
                         perform_pending_loads
                         compute_orogen_include_on_type(type, file_to_include)
-                    else raise ArgumentError, "cannot compute include information for #{type.name}. If it is an opaque, you must either load the header which defines it with import_types_from, or specify the relevant information with the orogen_include option"
+                    else
+                        raise ArgumentError,
+                              "cannot compute include information for #{type.name}. If it is an opaque, you must either load the header which defines it with import_types_from, or specify the relevant information with the orogen_include option"
                     end
                 end
 
@@ -1450,17 +1461,17 @@ module OroGen
                 #   source file and line to the toplevel include that relates to
                 #   this file
                 def resolve_registry_includes(registry, file_to_include)
-                    queue = Array.new
+                    queue = []
                     registry.each do |type|
                         _, template_args = Typelib::CXX.parse_template(type.name)
                         template_args = template_args.map do |type_name|
-                            if registry.include?(type_name)
-                                registry.get(type_name)
-                            end
+                            registry.get(type_name) if registry.include?(type_name)
                         end.compact
                         queue << [type, template_args]
                     end
-                    queue = queue.sort_by { |type, template_args| [template_args.size, type.name.size] }
+                    queue = queue.sort_by do |type, template_args|
+                        [template_args.size, type.name.size]
+                    end
 
                     until queue.empty?
                         # If this is a template, we need to add the relevant
@@ -1481,18 +1492,19 @@ module OroGen
                 def resolve_toplevel_include_mapping(toplevel_files, **options)
                     preprocessed = Typelib::CXX.preprocess(toplevel_files, "c", **options)
 
-                    owners = Hash.new { |h, k| h[k] = Array.new }
+                    owners = Hash.new { |h, k| h[k] = [] }
                     current_file = [[]]
                     preprocessed.each_line do |line|
                         if line =~ /# (\d+) "(.*)"(?: (\d))?/
-                            lineno = Integer($1)
-                            file = $2
-                            mode = $3
+                            lineno = Integer(::Regexp.last_match(1))
+                            file = ::Regexp.last_match(2)
+                            mode = ::Regexp.last_match(3)
 
                             if mode == "1"
                                 toplevel_file =
                                     if toplevel_files.include?(file) then file
-                                    else current_file.last[0]
+                                    else
+                                        current_file.last[0]
                                     end
                                 # the gccxml-importer always reported "flattened"
                                 # filepath, like "/usr/include/c++/4.9/bits".
@@ -1502,7 +1514,8 @@ module OroGen
                                 # have to flattend the path. this can fail for
                                 # "built-in" for examples, thus the rescue.
                                 begin
-                                    current_file.push [toplevel_file, File.realpath(file), lineno]
+                                    current_file.push [toplevel_file,
+                                                       File.realpath(file), lineno]
                                 rescue Errno::ENOENT
                                     # now file is smth like "<built-in>" or
                                     # similar, at it anyways...
@@ -1522,14 +1535,16 @@ module OroGen
                 end
 
                 def make_load_options(pending_loads, user_options)
-                    options = { :opaques_ignore => true, :merge => false, :required_files => pending_loads.to_a }
+                    options = { opaques_ignore: true, merge: false,
+                                required_files: pending_loads.to_a }
                     # GCCXML can't parse vectorized code, and the Typelib internal
                     # parser can't parse eigen at all. It is therefore safe to do it
                     # here
-                    options[:define] = ["OROCOS_TARGET=#{RTT_CPP.orocos_target}", "__orogen2"]
+                    options[:define] =
+                        ["OROCOS_TARGET=#{RTT_CPP.orocos_target}", "__orogen2"]
 
                     options[:include] = self.include_dirs.dup
-                    options = options.merge(user_options) do |key, a, b|
+                    options = options.merge(user_options) do |_key, a, b|
                         if a.respond_to?(:to_ary)
                             if b.respond_to?(:to_ary)
                                 b.concat(a)
@@ -1550,10 +1565,12 @@ module OroGen
                     # the file.
                     #
                     # This works around it by passing the flags to both stages.
-                    preprocess_options = Hash.new
-                    preprocess_options[:rawflags]      = options.fetch(:rawflags, Array.new)
-                    preprocess_options[:include]       = options.fetch(:include, Array.new)
-                    preprocess_options[:define]        = options.fetch(:define, Array.new)
+                    preprocess_options = {}
+                    preprocess_options[:rawflags]      =
+                        options.fetch(:rawflags, [])
+                    preprocess_options[:include]       =
+                        options.fetch(:include, [])
+                    preprocess_options[:define]        = options.fetch(:define, [])
                     [preprocess_options, options]
                 end
 
@@ -1581,9 +1598,7 @@ module OroGen
                     add, user_options = *pending_load_options
 
                     include_dirs = self.include_dirs.to_a
-                    if automatic_dir
-                        include_dirs << File.join(automatic_dir, "types")
-                    end
+                    include_dirs << File.join(automatic_dir, "types") if automatic_dir
 
                     file_registry = Typelib::Registry.new
                     file_registry.merge opaque_registry
@@ -1594,11 +1609,12 @@ module OroGen
 
                     include_path = include_dirs.map { |d| Pathname.new(d) }
                     pending_loads_to_relative =
-                        loads.each_with_object(Hash.new) do |path, map|
-                            map[path] = resolve_full_include_path_to_relative(path, include_path)
+                        loads.each_with_object({}) do |path, map|
+                            map[path] =
+                                resolve_full_include_path_to_relative(path, include_path)
                         end
 
-                    include_mappings.each do |file, lines|
+                    include_mappings.each do |_file, lines|
                         lines.map! { |inc| pending_loads_to_relative[inc] }
                     end
 
@@ -1623,14 +1639,14 @@ module OroGen
                         rescue RuntimeError => e
                             raise ArgumentError,
                                   "cannot load one of the header files "\
-                                  "#{loads.join(", ")}: #{e.message}",
+                                  "#{loads.join(', ')}: #{e.message}",
                                   e.backtrace
                         end
                     end
 
-                    if add
-                        self.loads.concat(loads.to_a)
-                    end
+                    return unless add
+
+                    self.loads.concat(loads.to_a)
                 end
 
                 METADATA_RELATED_TYPES = ["bitfield"]
@@ -1638,7 +1654,8 @@ module OroGen
                     validate_metadata = lambda do |context, md, metadata_key|
                         md.get(metadata_key).each do |typename|
                             unless registry.include?(typename)
-                                raise ArgumentError, "#{context} refers to #{typename} through the #{metadata_key} metadata, but this type is not defined"
+                                raise ArgumentError,
+                                      "#{context} refers to #{typename} through the #{metadata_key} metadata, but this type is not defined"
                             end
                         end
                     end
@@ -1648,7 +1665,8 @@ module OroGen
                             validate_metadata.call(type.name, type.metadata, metadata_key)
                             if type.respond_to?(:field_metadata)
                                 type.field_metadata.each do |field_name, field_metadata|
-                                    validate_metadata.call("#{type.name}.#{field_name}", field_metadata, metadata_key)
+                                    validate_metadata.call("#{type.name}.#{field_name}",
+                                                           field_metadata, metadata_key)
                                 end
                             end
                         end
@@ -1681,7 +1699,7 @@ module OroGen
                 BASE_TYPES_RTT_NAMES = {
                     "unsigned int" => "uint"
                 }
-                BASE_TYPES_NEEDED_TRANSPORTS = %w{typelib ros}
+                BASE_TYPES_NEEDED_TRANSPORTS = %w[typelib ros]
 
                 def normalize_registry
                     base = registry.dup
@@ -1718,10 +1736,13 @@ module OroGen
 
                 def imported_array_of?(type)
                     typename = if type.respond_to?(:name) then type.name
-                               else type.to_str
+                               else
+                                   type.to_str
                                end
 
-                    imported_typelist.any? { |str| str =~ /#{Regexp.quote(typename)}(\[\d+\])+/ }
+                    imported_typelist.any? do |str|
+                        str =~ /#{Regexp.quote(typename)}(\[\d+\])+/
+                    end
                 end
 
                 # Computes the set of typekits that are required to get the given
@@ -1734,18 +1755,15 @@ module OroGen
                         loop do
                             imported_typekits.each do |tk|
                                 if type < Typelib::ArrayType
-                                    if tk.defines_array_of?(type.deference)
-                                        result << tk
-                                    end
+                                    result << tk if tk.defines_array_of?(type.deference)
                                 elsif tk.includes?(type.name)
                                     result << tk
                                 end
                             end
 
-                            if type.respond_to?(:deference)
-                                type = type.deference
-                            else break
-                            end
+                            break unless type.respond_to?(:deference)
+
+                            type = type.deference
                         end
                     end
                     result
@@ -1778,9 +1796,7 @@ module OroGen
                         needs_link = linked_used_libraries.include?(pkg)
                         result << BuildDependency.new(pkg.name.upcase, pkg.name)
                                                  .in_context("core", "include")
-                        if needs_link
-                            result.last.in_context("core", "link")
-                        end
+                        result.last.in_context("core", "link") if needs_link
                     end
 
                     # We must link to typekits that define our types, as we are
@@ -1798,10 +1814,8 @@ module OroGen
                     # We must include the typekits that define types that are used
                     # in the other typekits types
                     each_plugin do |plg|
-                        unless plg.separate_cmake?
-                            if (deps = plg.dependencies)
-                                result.concat(deps)
-                            end
+                        if !plg.separate_cmake? && (deps = plg.dependencies)
+                            result.concat(deps)
                         end
                     end
 
@@ -1821,16 +1835,12 @@ module OroGen
                     end
                 end
 
-                def m_types_code
-                    @m_types_code
-                end
-
                 def m_type_exists?(type)
                     target_typename = intermediate_type_name_for(type)
                     current_def = begin
-                                      find_type(target_typename)
-                                  rescue Typelib::NotFound
-                                  end
+                        find_type(target_typename)
+                    rescue Typelib::NotFound
+                    end
 
                     return false unless current_def
 
@@ -1880,15 +1890,16 @@ module OroGen
                     # Make sure all opaque intermediate types are existing or can be
                     # instanciated
                     self_opaques.each do |opaque_def|
-                        begin
-                            t = find_type(opaque_def.intermediate)
-                            copy_metadata_to_intermediate_type(opaque_def.type.metadata, t.metadata)
-                            if t.contains_opaques?
-                                raise ConfigError, "the type #{opaque_def.intermediate} is used as an intermediate type for #{opaque_def.type.name}, but it is an opaque or contains opaques"
-                            end
-                        rescue Typelib::NotFound
-                            raise ConfigError, "type #{opaque_def.intermediate}, used as intermediate for opaque #{opaque_def.type.name}, does not exist", opaque_def.caller
+                        t = find_type(opaque_def.intermediate)
+                        copy_metadata_to_intermediate_type(opaque_def.type.metadata,
+                                                           t.metadata)
+                        if t.contains_opaques?
+                            raise ConfigError,
+                                  "the type #{opaque_def.intermediate} is used as an intermediate type for #{opaque_def.type.name}, but it is an opaque or contains opaques"
                         end
+                    rescue Typelib::NotFound
+                        raise ConfigError,
+                              "type #{opaque_def.intermediate}, used as intermediate for opaque #{opaque_def.type.name}, does not exist", opaque_def.caller
                     end
 
                     # Generate some type definitions for the pocosim marshalling. In
@@ -1904,13 +1915,15 @@ module OroGen
                     until needed_definitions.empty?
                         needed_definitions.delete_if do |type|
                             next(true) if m_type_exists?(type)
-                            next if type.dependencies.any? { |t| needed_definitions.include?(t) }
+                            next if type.dependencies.any? do |t|
+                                needed_definitions.include?(t)
+                            end
 
                             to_generate << type
                         end
                     end
 
-                    options = { :include => include_dirs.dup }
+                    options = { include: include_dirs.dup }
 
                     to_generate.each do |type|
                         needed_type_definitions = type.direct_dependencies.map do |needed_type|
@@ -1920,7 +1933,8 @@ module OroGen
                         marshalling_code = Generation
                                            .render_template "typekit", "marshalling_types.hpp", binding
 
-                        path = Generation.save_automatic "typekit", "types", name, "m_types", "#{type.method_name(true)}.hpp", marshalling_code
+                        path = Generation.save_automatic "typekit", "types", name,
+                                                         "m_types", "#{type.method_name(true)}.hpp", marshalling_code
                         self.load(path, true, options)
                     end
 
@@ -1928,8 +1942,10 @@ module OroGen
                         m_type = intermediate_type_for(type)
                         copy_metadata_to_intermediate_type(type.metadata, m_type.metadata)
                         if type.respond_to?(:field_metadata) && m_type.respond_to?(:field_metadata)
-                            m_type.field_metadata.each do |field_name, field_metadata|
-                                copy_metadata_to_intermediate_type(type.field_metadata[field_name], m_type.field_metadata[field_name])
+                            m_type.field_metadata.each do |field_name, _field_metadata|
+                                copy_metadata_to_intermediate_type(
+                                    type.field_metadata[field_name], m_type.field_metadata[field_name]
+                                )
                             end
                         end
                         m_type.metadata.set "orogen:m_type", "1"
@@ -1938,7 +1954,7 @@ module OroGen
                     true
                 end
 
-                COPY_METADATA_EXCLUDED_KEYS = %w{source_file_line cxx_name orogen_include}
+                COPY_METADATA_EXCLUDED_KEYS = %w[source_file_line cxx_name orogen_include]
                 def copy_metadata_to_intermediate_type(source, dest)
                     source.each do |key, values|
                         if key !~ /codegen/ && !COPY_METADATA_EXCLUDED_KEYS.include?(key)
@@ -1947,17 +1963,15 @@ module OroGen
                     end
                 end
 
-                def do_import(registry, path, kind, options)
-                end
+                def do_import(registry, path, kind, options); end
 
                 # This generates typedefs for container types. These
                 # typedefs are needed because IDL and the CORBA C++ mapping do not
                 # allow to reference sequence types directly (you have to typedef
                 # them first, or use them in a compound)
-                def generate_typedefs(generated_types, registry)
-                end
+                def generate_typedefs(generated_types, registry); end
 
-                def issue_warnings(generated_types, registry)
+                def issue_warnings(generated_types, _registry)
                     generated_types.each do |type|
                         if type.contains_int64?
                             OroGen::Gen::RTT_CPP.info "you will not be able to marshal #{type.name} as XML, it contains 64bit integers"
@@ -1971,12 +1985,10 @@ module OroGen
                 # typekit.
                 def self_typenames
                     generated_types = []
-                    registry.each(:with_aliases => true) do |name, type|
+                    registry.each(with_aliases: true) do |name, type|
                         next if imported_type?(name)
 
-                        unless type.inlines_code?
-                            generated_types << name
-                        end
+                        generated_types << name unless type.inlines_code?
                     end
                     generated_types
                 end
@@ -2022,11 +2034,13 @@ module OroGen
                     end
                 end
 
-                attr_reader :template_instanciation_files
+                attr_reader :m_types_code, :selected_types, :registry, :imported_types,
+                            :imported_typekits, :used_libraries, :linked_used_libraries, :opaque_registry, :pending_load_options, :pending_loads, :template_instanciation_files
 
                 def save_automatic_public_header(*args)
                     rel = File.join(name, "typekit", *args[0..-2])
-                    Generation.save_generated(true, automatic_dir, INCLUDE_DIR_NAME, rel, args[-1])
+                    Generation.save_generated(true, automatic_dir, INCLUDE_DIR_NAME, rel,
+                                              args[-1])
                     rel
                 end
 
@@ -2036,9 +2050,7 @@ module OroGen
 
                 def save_user(*args)
                     path = Generation.save_generated(false, user_dir, *args)
-                    if templates_dir
-                        Generation.save_generated(true, templates_dir, *args)
-                    end
+                    Generation.save_generated(true, templates_dir, *args) if templates_dir
                     path
                 end
 
@@ -2052,11 +2064,11 @@ module OroGen
                     impl = []
                     place = File.join(*place)
                     code_snippets.each do |code|
-                        if code[0].respond_to?(:name_as_word)
-                            code[0] = code[0].name_as_word
-                        else
-                            code[0] = code[0].to_str
-                        end
+                        code[0] = if code[0].respond_to?(:name_as_word)
+                                      code[0].name_as_word
+                                  else
+                                      code[0].to_str
+                                  end
                     end
                     code_snippets = code_snippets.sort_by { |code| code[0] }
 
@@ -2078,7 +2090,7 @@ module OroGen
                 # In order to use Set, we must make sure that all type objects
                 # come from the same registry. This method takes a Set of types
                 # and converts all of them to the type coming from +registry+
-                def map_typeset_to_registry(registry, types)
+                def map_typeset_to_registry(_registry, types)
                     types.map { |t| find_type(t) }.to_set
                 end
 
@@ -2104,7 +2116,7 @@ module OroGen
 
                     unless typenames.empty?
                         raise ArgumentError,
-                              "could not find #{typenames.join(", ")} in registry"
+                              "could not find #{typenames.join(', ')} in registry"
                     end
 
                     @registry = result
@@ -2128,7 +2140,8 @@ module OroGen
 
                     if standalone?
                         fake_typekit_dir = File.join(automatic_dir, "typekit")
-                        Generation.create_or_update_symlink(automatic_dir, fake_typekit_dir)
+                        Generation.create_or_update_symlink(automatic_dir,
+                                                            fake_typekit_dir)
                     end
 
                     # Generate opaque-related stuff first, so that we see them in
@@ -2175,7 +2188,10 @@ module OroGen
                                   .delete_if do |type|
                                       imported_array_of?(type.deference)
                                   end
-                                  .each_with_object({}) { |type, h| h[type.deference.name] = type }
+                                  .each_with_object({}) do |type, h|
+                        h[type.deference.name] =
+                            type
+                    end
                                   .values
                                   .sort_by(&:name)
 
@@ -2200,7 +2216,8 @@ module OroGen
 
                         elsif type_export_policy == :used
                             used_types = project.self_tasks.inject(Set.new) do |result, task|
-                                result | map_typeset_to_registry(registry, task.interface_types)
+                                result | map_typeset_to_registry(registry,
+                                                                 task.interface_types)
                             end
                             (used_types & generated_types)
                         elsif type_export_policy == :selected
@@ -2208,14 +2225,15 @@ module OroGen
                         end
 
                     unless selected_types.empty?
-                        registered_types |= map_typeset_to_registry(registry, selected_types)
+                        registered_types |= map_typeset_to_registry(registry,
+                                                                    selected_types)
                     end
 
                     # Save all the types that this specific typekit handles,
                     # including aliases
                     registered_typenames = registered_types.map(&:name).to_set
-                    all_names = Hash.new
-                    minimal_registry.each(:with_aliases => true) do |name, type|
+                    all_names = {}
+                    minimal_registry.each(with_aliases: true) do |name, type|
                         all_names[type.name] ||= []
                         all_names[type.name] << name
                     end
@@ -2224,9 +2242,7 @@ module OroGen
                         is_exported = registered_typenames.include?(type.name) ? "1" : "0"
                         metadata = minimal_registry.get(type.name).metadata
                         metadata.add "orogen_defining_typekits", self.name
-                        if is_exported
-                            metadata.add "orogen_exporting_typekits", self.name
-                        end
+                        metadata.add "orogen_exporting_typekits", self.name if is_exported
                         all_names[type.name].each do |type_name|
                             typelist_txt << "#{type_name} #{is_exported}"
                         end
@@ -2267,58 +2283,76 @@ module OroGen
                     type_sets.interface_types  = interface_types
                     type_sets.minimal_registry = minimal_registry
                     type_sets.opaque_types     = self_opaques
-                    type_sets.aliases          = Hash.new
+                    type_sets.aliases = ({})
 
                     public_header_files = []
                     plugin_header_files = []
                     implementation_files = []
 
                     # For backward compatibility
-                    if File.symlink?(old_symlink = File.join(automatic_dir, "Opaques.hpp"))
+                    if File.symlink?(old_symlink = File.join(automatic_dir,
+                                                             "Opaques.hpp"))
                         FileUtils.rm_f old_symlink
                     end
 
                     type_header = Generation.render_template("typekit/Types.hpp", binding)
-                    public_header_files << save_automatic_public_header("Types.hpp", type_header)
-                    type_header = Generation.render_template("typekit/TypesDeprecated.hpp", binding)
+                    public_header_files << save_automatic_public_header("Types.hpp",
+                                                                        type_header)
+                    type_header = Generation.render_template(
+                        "typekit/TypesDeprecated.hpp", binding
+                    )
                     save_automatic("Types.hpp", type_header)
-                    type_header = Generation.render_template("typekit/OpaquesDeprecated.hpp", binding)
+                    type_header = Generation.render_template(
+                        "typekit/OpaquesDeprecated.hpp", binding
+                    )
                     save_automatic("Opaques.hpp", type_header)
-                    boost_serialization = Generation.render_template "typekit/BoostSerialization.hpp", binding
-                    public_header_files << save_automatic_public_header("BoostSerialization.hpp", boost_serialization)
+                    boost_serialization = Generation.render_template "typekit/BoostSerialization.hpp",
+                                                                     binding
+                    public_header_files << save_automatic_public_header(
+                        "BoostSerialization.hpp", boost_serialization
+                    )
                     tk_hpp = Generation.render_template "typekit/Plugin.hpp", binding
-                    public_header_files << save_automatic_public_header("Plugin.hpp", tk_hpp)
+                    public_header_files << save_automatic_public_header("Plugin.hpp",
+                                                                        tk_hpp)
                     tk_cpp = Generation.render_template "typekit/Plugin.cpp", binding
                     implementation_files << save_automatic("Plugin.cpp", tk_cpp)
 
                     # Generate the opaque convertion files
                     if has_opaques?
-                        intermediates_hpp = Generation.render_template "typekit/OpaqueConvertions.hpp", binding
+                        intermediates_hpp = Generation.render_template "typekit/OpaqueConvertions.hpp",
+                                                                       binding
                         public_header_files <<
-                            save_automatic_public_header("OpaqueConvertions.hpp", intermediates_hpp)
+                            save_automatic_public_header("OpaqueConvertions.hpp",
+                                                         intermediates_hpp)
 
-                        intermediates_cpp = Generation.render_template "typekit/OpaqueConvertions.cpp", binding
+                        intermediates_cpp = Generation.render_template "typekit/OpaqueConvertions.cpp",
+                                                                       binding
                         implementation_files <<
                             save_automatic("OpaqueConvertions.cpp", intermediates_cpp)
 
-                        fwd_hpp = Generation.render_template "typekit/OpaqueFwd.hpp", binding
+                        fwd_hpp = Generation.render_template "typekit/OpaqueFwd.hpp",
+                                                             binding
                         public_header_files <<
                             save_automatic_public_header("OpaqueFwd.hpp", fwd_hpp)
 
-                        types_hpp = Generation.render_template "typekit/OpaqueTypes.hpp", binding
+                        types_hpp = Generation.render_template "typekit/OpaqueTypes.hpp",
+                                                               binding
                         public_header_files <<
                             save_automatic_public_header("OpaqueTypes.hpp", types_hpp)
 
                         if has_opaques_with_templates?
-                            user_hh = Generation.render_template "typekit/Opaques.hpp", binding
-                            user_cc = Generation.render_template "typekit/Opaques.cpp", binding
+                            user_hh = Generation.render_template "typekit/Opaques.hpp",
+                                                                 binding
+                            user_cc = Generation.render_template "typekit/Opaques.cpp",
+                                                                 binding
                             save_user("Opaques.hpp", user_hh)
                             implementation_files <<
                                 save_user("Opaques.cpp", user_cc)
 
                             Generation.create_or_update_symlink(
                                 File.join(user_dir, "Opaques.hpp"),
-                                File.join(automatic_dir, INCLUDE_DIR_NAME, self.name, "typekit", "Opaques.hpp")
+                                File.join(automatic_dir, INCLUDE_DIR_NAME, self.name,
+                                          "typekit", "Opaques.hpp")
                             )
                         end
                     end
@@ -2332,7 +2366,8 @@ module OroGen
 
                     if standalone?
                         FileUtils.mkdir_p File.join(automatic_dir, "config")
-                        Dir.glob File.join(Generation.template_path("config"), "*") do |path|
+                        Dir.glob File.join(Generation.template_path("config"),
+                                           "*") do |path|
                             basename = File.basename(path)
                             unless Project::CMAKE_GENERATED_CONFIG.include?(basename)
                                 save_automatic "config", basename, File.read(path)
@@ -2342,9 +2377,11 @@ module OroGen
 
                     pkg_config = Generation.render_template "typekit/typekit.pc", binding
                     save_automatic("#{name}-typekit.pc.in", pkg_config)
-                    cmake = Generation.render_template "typekit", "CMakeLists.txt", binding
+                    cmake = Generation.render_template "typekit", "CMakeLists.txt",
+                                                       binding
                     save_automatic("CMakeLists.txt", cmake)
-                    manifest = Generation.render_template "typekit", "manifest.xml", binding
+                    manifest = Generation.render_template "typekit", "manifest.xml",
+                                                          binding
                     save_automatic("manifest.xml", manifest)
                     package = Generation.render_template "typekit", "package.xml", binding
                     save_automatic("package.xml", package)
@@ -2357,20 +2394,24 @@ module OroGen
                 end
 
                 def cmake_relative_path(file, *subdir)
-                    Pathname.new(file).relative_path_from(Pathname.new(File.join(automatic_dir, *subdir))).to_s
+                    Pathname.new(file).relative_path_from(Pathname.new(File.join(
+                                                                           automatic_dir, *subdir
+                                                                       ))).to_s
                 end
 
                 def type_info_includes_for_type(type)
                     if type.opaque?
                         type_info_includes_for_type(intermediate_type_for(type))
                     elsif TypekitMarshallers::TypeInfo::Plugin.rtt_scripting?
-                        result = ["#{name}/typekit/BoostSerialization.hpp", type.info_type_header]
+                        result = ["#{name}/typekit/BoostSerialization.hpp",
+                                  type.info_type_header]
                         if type.full_name == "/std/string"
                             result << "rtt/typekit/StdStringTypeInfo.hpp"
                         end
                         result
                     else
-                        ["rtt/types/PrimitiveTypeInfo.hpp", "rtt/types/TemplateConnFactory.hpp"]
+                        ["rtt/types/PrimitiveTypeInfo.hpp",
+                         "rtt/types/TemplateConnFactory.hpp"]
                     end
                 end
 
@@ -2386,9 +2427,11 @@ module OroGen
                     end
 
                     if type.opaque?
-                        raise ConfigError, "no includes known for #{type.name}, This is an opaque, and you must either call import_types_from on a header that defines it, or provide the :include option to the opaque definition"
+                        raise ConfigError,
+                              "no includes known for #{type.name}, This is an opaque, and you must either call import_types_from on a header that defines it, or provide the :include option to the opaque definition"
                     else
-                        raise InternalError, "no includes known for #{type.name} defined in #{type.metadata.get("source_file_line")}"
+                        raise InternalError,
+                              "no includes known for #{type.name} defined in #{type.metadata.get('source_file_line')}"
                     end
                 end
 
