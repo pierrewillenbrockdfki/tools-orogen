@@ -51,8 +51,8 @@ module OroGen
 
                     templates[path] =
                         begin
-                            ERB.new(File.read(template_file), nil, "<>",
-                                    path.join("_").downcase.gsub(%r{[\/\.-]}, "_"))
+                            ERB.new(File.read(template_file), trim_mode: "<>",
+                                    eoutvar: path.join("_").downcase.gsub(%r{[\/\.-]}, "_"))
                         rescue Errno::ENOENT
                             raise ArgumentError, "template #{File.join(*path)} "\
                                                  "does not exist"
