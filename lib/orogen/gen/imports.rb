@@ -6,15 +6,8 @@ module OroGen
             # Instances of this class represent a typekit that has been imported
             # using {Project#using_typekit}
             class ImportedTypekit
-                attr_reader :main_project
-                attr_reader :name
-                attr_reader :pkg
-                attr_reader :registry
-                attr_reader :typelist
-                attr_reader :interface_typelist
-
-                attr_reader :opaques
-                attr_reader :opaque_registry
+                attr_reader :main_project, :name, :pkg, :registry, :typelist,
+                            :interface_typelist, :opaques, :opaque_registry
 
                 def self.parse_typelist(typelist_txt)
                     raw_typelist = typelist_txt.split("\n").map(&:strip)
@@ -27,17 +20,15 @@ module OroGen
                         # /unsigned char[8]
                         # /unsigned char[8] 0
                         if decl =~ /^(.*) (\d)$/
-                            type = $1
-                            is_interface = ($2 == "1")
+                            type = ::Regexp.last_match(1)
+                            is_interface = (::Regexp.last_match(2) == "1")
                         else
                             type = decl
                             is_interface = true
                         end
 
                         typekit_typelist << type
-                        if is_interface
-                            typekit_interface_typelist << type
-                        end
+                        typekit_interface_typelist << type if is_interface
                     end
                     [typekit_typelist, typekit_interface_typelist]
                 end
@@ -62,7 +53,8 @@ module OroGen
                         spec = OpaqueDefinition.new(
                             typekit_registry.get(base_type_name),
                             inter_type_name,
-                            { :include => includes.split(":"), :needs_copy => (needs_copy == "1") },
+                            { include: includes.split(":"),
+                              needs_copy: (needs_copy == "1") },
                             nil
                         )
 
@@ -80,21 +72,20 @@ module OroGen
                     interface_typelist.include?(typename)
                 end
 
-                def initialize(main_project, name, pkg, registry, typelist, interface_typelist)
+                def initialize(main_project, name, pkg, registry, typelist,
+                    interface_typelist)
                     @main_project = main_project
                     @name = name
                     @pkg = pkg
                     @registry = registry
                     @typelist = typelist.to_set
                     @interface_typelist = interface_typelist.to_set
-                    @opaques = Array.new
+                    @opaques = []
                     @opaque_registry = Typelib::Registry.new
                 end
 
                 def has_opaques?
-                    if @has_opaques.nil?
-                        @has_opaques = registry.any?(&:opaque?)
-                    end
+                    @has_opaques = registry.any?(&:opaque?) if @has_opaques.nil?
                     @has_opaques
                 end
 
@@ -150,7 +141,8 @@ module OroGen
 
                 def defines_array_of?(type)
                     typename = if type.respond_to?(:name) then type.name
-                               else type.to_str
+                               else
+                                   type.to_str
                                end
 
                     typelist.any? { |str| str =~ /#{Regexp.quote(typename)}(\[\d+\])+/ }
@@ -170,7 +162,8 @@ module OroGen
 
                 def includes?(type)
                     typename = if type.respond_to?(:name) then type.name
-                               else type.to_str
+                               else
+                                   type.to_str
                                end
                     typelist.include?(typename)
                 end
@@ -199,7 +192,7 @@ module OroGen
                     true
                 end
 
-                def defines_array_of?(*args)
+                def defines_array_of?(*_args)
                     false
                 end
             end
@@ -216,6 +209,7 @@ module OroGen
                 attr_reader :main_project
                 # The pkg-config file defining this oroGen project
                 attr_reader :pkg
+
                 # The pkg-config file for the task library of this oroGen project
                 def tasklib_pkg_name
                     "#{name}-tasks-#{RTT_CPP.orocos_target}"
@@ -240,29 +234,32 @@ module OroGen
                     @pkg = pkg
                     super()
 
-                    if pkg && main_project && main_project.has_typekit?(name)
-                        using_typekit pkg.project_name
-                    end
+                    return unless pkg && main_project && main_project.has_typekit?(name)
+
+                    using_typekit pkg.project_name
                 end
 
                 def include_dirs
                     if pkg
                         pkg.include_dirs
-                    else Set.new
+                    else
+                        Set.new
                     end
                 end
 
-                def load_orogen_project(name, options = Hash.new)
+                def load_orogen_project(name, options = {})
                     if main_project
                         main_project.load_orogen_project(name, options)
-                    else super
+                    else
+                        super
                     end
                 end
 
                 def load_task_library(name)
                     if main_project
                         main_project.load_task_library(name)
-                    else super
+                    else
+                        super
                     end
                 end
 
@@ -285,31 +282,34 @@ module OroGen
                     # But, then, return the equivalent type from the master project
                     if main_project
                         main_project.find_type(t.name)
-                    else t
+                    else
+                        t
                     end
                 end
 
                 def using_typekit(name)
                     if main_project
                         super(main_project.using_typekit(name))
-                    else super
+                    else
+                        super
                     end
                 end
 
-                def import_types_from(name, *args)
+                def import_types_from(name, *_args)
                     if main_project&.has_typekit?(name)
                         using_typekit name
-                    else typekit
+                    else
+                        typekit
                     end
                 end
 
-                def using_library(*args)
-                end
+                def using_library(*args); end
 
                 def using_task_library(name)
                     if main_project
                         super(main_project.using_task_library(name))
-                    else super
+                    else
+                        super
                     end
                 end
 
@@ -325,15 +325,15 @@ module OroGen
                 end
 
                 # Simply ignore type export directives
-                def export_types(*args)
+                def export_types(*_args)
                     self
                 end
 
-                def type_export_policy(*args)
+                def type_export_policy(*_args)
                     self
                 end
 
-                def typekit(create = nil, &block) # :nodoc:
+                def typekit(create = nil) # :nodoc:
                     if @typekit.nil? && @has_typekit.nil?
                         @has_typekit =
                             if main_project&.has_typekit?(name)
@@ -349,13 +349,9 @@ module OroGen
                                 false
                             end
 
-                        if @has_typekit
-                            @typekit = using_typekit(name)
-                        end
+                        @typekit = using_typekit(name) if @has_typekit
                     end
-                    if !@typekit && create
-                        @typekit = Typekit.new(self)
-                    end
+                    @typekit = Typekit.new(self) if !@typekit && create
                     @typekit
                 end
 

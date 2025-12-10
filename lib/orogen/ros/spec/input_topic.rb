@@ -8,7 +8,7 @@ module OroGen
                 #   {name} returns the node-local name (the "port" name)
                 attr_accessor :ros_name
 
-                alias :topic_name :ros_name
+                alias topic_name ros_name
             end
         end
     end

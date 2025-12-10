@@ -2,7 +2,7 @@
 
 module OroGen
     module ROS
-        OROGEN_ROS_LIB_DIR = File.expand_path(File.dirname(__FILE__))
+        OROGEN_ROS_LIB_DIR = __dir__
 
         # Find the path of a rosnode binary
         # @return [String] Path to the rosnode binary
@@ -11,7 +11,8 @@ module OroGen
 
             bin_path = File.join(package_path, "bin", binary_name)
             unless File.file?(bin_path)
-                raise ArgumentError, "there is no node called #{binary_name} in #{package_name} (looked in #{bin_path})"
+                raise ArgumentError,
+                      "there is no node called #{binary_name} in #{package_name} (looked in #{bin_path})"
             end
 
             bin_path
@@ -26,7 +27,8 @@ module OroGen
 
             # Handle ROS error message
             if running_nodes.size == 1 && running_nodes.first =~ /ERROR/
-                raise InternalError, "cannot query node list. Master node is not available."
+                raise InternalError,
+                      "cannot query node list. Master node is not available."
             end
 
             running_nodes
@@ -57,7 +59,7 @@ module OroGen
         # Normalize the name, i.e. make sure the
         # name is(!) prefixed with a '/'
         def self.normalize_name(name)
-            "/#{name}".sub(/^\/+/, "/")
+            "/#{name}".sub(%r{^/+}, "/")
         end
 
         # Locate the launch file in a given ros package
@@ -72,7 +74,8 @@ module OroGen
 
             launch_path = File.join(launch_path, launch_name)
             unless File.file?(launch_path)
-                raise ArgumentError, "there is no launch_file called #{launch_name} in #{package_name} (looked in #{launch_path})"
+                raise ArgumentError,
+                      "there is no launch_file called #{launch_name} in #{package_name} (looked in #{launch_path})"
             end
 
             launch_path

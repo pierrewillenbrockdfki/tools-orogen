@@ -17,8 +17,9 @@ module OroGen
                     self
                 end
             end
+
             class Gen::RTT_CPP::ImportedTypekit
-                def ros_mappings(mappings)
+                def ros_mappings(_mappings)
                     self
                 end
             end
@@ -32,7 +33,7 @@ module OroGen
             # @return [Hash<String,String>] mapping from the oroGen type
             #   name to the corresponding ROS message name
             def self.load_rosmap(path)
-                result = Hash.new
+                result = {}
                 File.readlines(path).each do |line|
                     line = line.strip
                     next if line.empty?
@@ -47,12 +48,14 @@ module OroGen
                 pkg = Utilrb::PkgConfig.new("#{name}-transport-ros-#{OroGen.orocos_target}")
                 if pkg.rosmap
                     load_rosmap(pkg.rosmap)
-                else raise ArgumentError, "the oroGen project #{name} does not have a rosmap"
+                else
+                    raise ArgumentError,
+                          "the oroGen project #{name} does not have a rosmap"
                 end
             end
 
-            DEFAULT_BOXED_MSG_MAPPINGS = Hash.new
-            DEFAULT_TYPE_TO_MSG = Hash.new
+            DEFAULT_BOXED_MSG_MAPPINGS = {}
+            DEFAULT_TYPE_TO_MSG = {}
 
             DEFAULT_BOXED_MSG_MAPPINGS["std_msgs/Time"] = "time"
             [8, 16, 32, 64].each do |int_size|
@@ -146,7 +149,9 @@ module OroGen
                             # Yuk ! Not dependent on the architecture, and
                             # hardcoded pkg-config stuff behaviour
                             raw_mapping = ROS.load_rosmap_by_package_name(tk.name)
-                            raw_mapping.delete_if { |type_name, _| !typekit.registry.include?(type_name) }
+                            raw_mapping.delete_if do |type_name, _|
+                                !typekit.registry.include?(type_name)
+                            end
                             ros_mappings(raw_mapping)
                         rescue Utilrb::PkgConfig::NotFound
                         end
@@ -172,9 +177,7 @@ module OroGen
                         needs_link = typekit.linked_used_libraries.include?(pkg)
                         result << Gen::RTT_CPP::BuildDependency.new(pkg.name.upcase, pkg.name)
                                                                .in_context("ros", "include")
-                        if needs_link
-                            result.last.in_context("ros", "link")
-                        end
+                        result.last.in_context("ros", "link") if needs_link
                     end
                     build_dep = Gen::RTT_CPP::BuildDependency.new(
                         "OROCOS_RTT_ROS",
@@ -220,9 +223,7 @@ module OroGen
                 # @param [#name,#to_str] the typekit or typekit name
                 # @return [String] the corresponding ROS package name
                 def ros_package_name_for_typekit(typekit)
-                    if typekit.respond_to?(:name)
-                        typekit = typekit.name
-                    end
+                    typekit = typekit.name if typekit.respond_to?(:name)
                     "orogen_#{typekit}_msgs"
                 end
 
@@ -262,7 +263,8 @@ module OroGen
                 def ros_cxx_type(type, do_unboxing = true)
                     explicit_mapping = type_to_msg[type.name]
                     if !explicit_mapping && (type < Typelib::ArrayType || type < Typelib::ContainerType)
-                        return "std::vector< #{ros_cxx_type(type.deference, do_unboxing)} >"
+                        return "std::vector< #{ros_cxx_type(type.deference,
+                                                            do_unboxing)} >"
                     end
 
                     msg_name = ros_message_name(type, true)
@@ -273,13 +275,16 @@ module OroGen
                     if type < Typelib::NumericType && do_unboxing
                         if type.integer?
                             if msg_name == "bool" then "bool"
-                            else "boost::#{msg_name}_t"
+                            else
+                                "boost::#{msg_name}_t"
                             end
                         elsif type.size == 4
                             "float"
                         elsif type.size == 8
                             "double"
-                        else raise ArgumentError, "don't know what to use to represent #{type} on the ROS C++ mapping"
+                        else
+                            raise ArgumentError,
+                                  "don't know what to use to represent #{type} on the ROS C++ mapping"
                         end
                     elsif type < Typelib::EnumType
                         "boost::int32_t"
@@ -288,7 +293,7 @@ module OroGen
                     elsif msg_name == "string"
                         "std::string"
                     else
-                        msg_name.gsub(/\//, "::")
+                        msg_name.gsub(%r{/}, "::")
                     end
                 end
 
@@ -322,8 +327,9 @@ module OroGen
                     elsif multidimensional_array?(type)
                         false
                     elsif ARRAY_TYPES.any? { |array_type| type < array_type }
-                        (ros_converted_type?(type.deference) || type.deference <= Typelib::EnumType)
-                    else true
+                        ros_converted_type?(type.deference) || type.deference <= Typelib::EnumType
+                    else
+                        true
                     end
                 end
 
@@ -337,36 +343,38 @@ module OroGen
                     # ROS cannot represent arrays in arrays. Filter those out
                     type.recursive_dependencies.each do |t|
                         next if type_to_msg.has_key?(t.name)
-                        if multidimensional_array?(t)
-                            return
-                        end
+                        return if multidimensional_array?(t)
                     end
                     true
                 end
 
                 def generate_type_convertion_list(typeset)
-                    convert_types = Array.new
+                    convert_types = []
                     typeset.each do |type|
                         next unless ros_converted_type?(type)
 
                         convert_types << [type, type]
 
                         target_type = typekit.intermediate_type_for(type)
-                        if target_type != type
-                            convert_types << [target_type, type]
-                        end
+                        convert_types << [target_type, type] if target_type != type
                     end
                     convert_types.to_set.to_a.sort_by { |t0, t1| [t0.name, t1.name] }
                 end
 
-                def generate_disabled(typesets, convert_types, convert_array_types, user_converted_types)
-                    rosmap = Gen::RTT_CPP.render_template "typekit", "ros", "rosmap", binding
-                    rosmap = typekit.save_automatic("transports", "ros", "#{typekit.name}.rosmap", rosmap)
+                def generate_disabled(typesets, convert_types, convert_array_types,
+                    user_converted_types)
+                    rosmap = Gen::RTT_CPP.render_template "typekit", "ros", "rosmap",
+                                                          binding
+                    rosmap = typekit.save_automatic("transports", "ros",
+                                                    "#{typekit.name}.rosmap", rosmap)
 
-                    pkg_config = Gen::RTT_CPP.render_template "typekit", "ros", "transport-ros-disabled.pc", binding
-                    typekit.save_automatic("transports", "ros", "#{typekit.name}-transport-ros.pc.in", pkg_config)
+                    pkg_config = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                              "transport-ros-disabled.pc", binding
+                    typekit.save_automatic("transports", "ros",
+                                           "#{typekit.name}-transport-ros.pc.in", pkg_config)
 
-                    cmake = Gen::RTT_CPP.render_template "typekit", "ros", "CMakeLists-disabled.txt", binding
+                    cmake = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                         "CMakeLists-disabled.txt", binding
                     typekit.save_automatic("transports", "ros", "CMakeLists.txt", cmake)
                     [[], []]
                 end
@@ -381,7 +389,7 @@ module OroGen
 
                     # All the generated messages. Used to generate the CMake
                     # file
-                    all_messages = Array.new
+                    all_messages = []
                     typesets.converted_types.each do |type|
                         # We are reusing an existing ROS message
                         next if type_to_msg.has_key?(type.name)
@@ -390,12 +398,12 @@ module OroGen
                         msg_name  = ros_message_name(type)
 
                         if ros_exported_type?(type) && !typekit.m_type?(type)
-                            if type.opaque?
-                                type = typekit.intermediate_type_for(type)
-                            end
+                            type = typekit.intermediate_type_for(type) if type.opaque?
 
-                            msg = Gen::RTT_CPP.render_template "typekit", "ros", "Type.msg", binding
-                            typekit.save_automatic("transports", "ros", "msg", "#{msg_name}.msg", msg)
+                            msg = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                               "Type.msg", binding
+                            typekit.save_automatic("transports", "ros", "msg",
+                                                   "#{msg_name}.msg", msg)
                             all_messages << msg_name
                         end
                     end
@@ -414,17 +422,18 @@ module OroGen
                         typesets.converted_types
                             .find_all { |t| type_to_msg[t.name] }
                     )
-                    user_converted_types.delete_if do |type, ros_type|
+                    user_converted_types.delete_if do |type, _ros_type|
                         ros_cxx_type(type) == type.cxx_name.gsub(/^::/, "")
                     end
 
                     unless enabled?
-                        return generate_disabled(typesets, convert_types, convert_array_types, user_converted_types)
+                        return generate_disabled(typesets, convert_types,
+                                                 convert_array_types, user_converted_types)
                     end
 
                     # Have a look the user_converted_types whether we need to
                     # generate some unboxing functions automatically
-                    convert_boxed_types = user_converted_types.find_all do |type, ros_type|
+                    convert_boxed_types = user_converted_types.find_all do |_type, ros_type|
                         boxed_ros_msg?(ros_message_name(ros_type, true))
                     end.to_set
 
@@ -438,47 +447,59 @@ module OroGen
                         if (mapped = type_to_msg[type.name]) && boxed_ros_msg?(mapped)
                             convert_boxed_types << [type, type]
                         end
-                        code = Gen::RTT_CPP.render_template "typekit", "ros", "Type.cpp", binding
+                        code = Gen::RTT_CPP.render_template "typekit", "ros", "Type.cpp",
+                                                            binding
                         [type, code]
                     end.compact
 
-                    headers = Array.new
-                    impl = Array.new
+                    headers = []
+                    impl = []
 
-                    convert_boxed_types = convert_boxed_types.sort_by { |t1, t2| [t1.name, t2.name] }
-                    code = Gen::RTT_CPP.render_template "typekit", "ros", "Convertions.hpp", binding
+                    convert_boxed_types = convert_boxed_types.sort_by do |t1, t2|
+                        [t1.name, t2.name]
+                    end
+                    code = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                        "Convertions.hpp", binding
                     headers << typekit.save_automatic("transports", "ros",
                                                       "Convertions.hpp", code)
-                    code = Gen::RTT_CPP.render_template "typekit", "ros", "Convertions.cpp", binding
+                    code = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                        "Convertions.cpp", binding
                     impl << typekit.save_automatic("transports", "ros",
                                                    "Convertions.cpp", code)
 
-                    code = Gen::RTT_CPP.render_template "typekit", "ros", "TransportPlugin.hpp", binding
+                    code = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                        "TransportPlugin.hpp", binding
                     headers << typekit.save_automatic("transports", "ros",
                                                       "TransportPlugin.hpp", code)
-                    code = Gen::RTT_CPP.render_template "typekit", "ros", "TransportPlugin.cpp", binding
+                    code = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                        "TransportPlugin.cpp", binding
                     impl << typekit.save_automatic("transports", "ros",
                                                    "TransportPlugin.cpp", code)
                     unless user_converted_types.empty?
                         # We need to generate a user part with the convertion
                         # functions. Reuse the templates !
 
-                        code = Gen::RTT_CPP.render_template "typekit", "ros", "ROSConvertions.hpp", binding
+                        code = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                            "ROSConvertions.hpp", binding
                         headers << typekit.save_user("ROSConvertions.hpp", code)
-                        code = Gen::RTT_CPP.render_template "typekit", "ros", "ROSConvertions.cpp", binding
+                        code = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                            "ROSConvertions.cpp", binding
                         impl << typekit.save_user("ROSConvertions.cpp", code)
                         Gen::RTT_CPP.create_or_update_symlink(
-                            headers.last, File.join(typekit.automatic_dir, "transports", "ros", "ROSConvertions.hpp")
+                            headers.last, File.join(typekit.automatic_dir, "transports",
+                                                    "ros", "ROSConvertions.hpp")
                         )
                     end
 
-                    impl += typekit.render_typeinfo_snippets(code_snippets, "transports", "ros")
+                    impl += typekit.render_typeinfo_snippets(code_snippets, "transports",
+                                                             "ros")
 
                     unless rejected.empty?
-                        ROS.warn "#{rejected.size} types cannot be exported to ROS, you will not able to publish/subscribe ports of these types to/from ROS: #{rejected.map(&:name).sort.join(", ")}"
+                        ROS.warn "#{rejected.size} types cannot be exported to ROS, you will not able to publish/subscribe ports of these types to/from ROS: #{rejected.map(&:name).sort.join(', ')}"
                     end
 
-                    code = Gen::RTT_CPP.render_template "typekit", "ros", "Registration.hpp", binding
+                    code = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                        "Registration.hpp", binding
                     typekit.save_automatic("transports", "ros", "Registration.hpp", code)
 
                     impl = impl.map do |path|
@@ -488,16 +509,23 @@ module OroGen
                         typekit.cmake_relative_path(path, "transports", "ros")
                     end.sort
 
-                    cmake_config = Gen::RTT_CPP.render_template "typekit", "ros", "config.cmake.in", binding
-                    typekit.save_automatic("transports", "ros", "orogen_#{typekit.name}_msgs-config.cmake.in", cmake_config)
+                    cmake_config = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                                "config.cmake.in", binding
+                    typekit.save_automatic("transports", "ros",
+                                           "orogen_#{typekit.name}_msgs-config.cmake.in", cmake_config)
 
-                    rosmap = Gen::RTT_CPP.render_template "typekit", "ros", "rosmap", binding
-                    rosmap = typekit.save_automatic("transports", "ros", "#{typekit.name}.rosmap", rosmap)
+                    rosmap = Gen::RTT_CPP.render_template "typekit", "ros", "rosmap",
+                                                          binding
+                    rosmap = typekit.save_automatic("transports", "ros",
+                                                    "#{typekit.name}.rosmap", rosmap)
 
-                    pkg_config = Gen::RTT_CPP.render_template "typekit", "ros", "transport-ros.pc", binding
-                    typekit.save_automatic("transports", "ros", "#{typekit.name}-transport-ros.pc.in", pkg_config)
+                    pkg_config = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                              "transport-ros.pc", binding
+                    typekit.save_automatic("transports", "ros",
+                                           "#{typekit.name}-transport-ros.pc.in", pkg_config)
 
-                    cmake = Gen::RTT_CPP.render_template "typekit", "ros", "CMakeLists.txt", binding
+                    cmake = Gen::RTT_CPP.render_template "typekit", "ros",
+                                                         "CMakeLists.txt", binding
                     typekit.save_automatic("transports", "ros", "CMakeLists.txt", cmake)
 
                     [[], []]
@@ -527,6 +555,7 @@ module OroGen
                     "fromROS(#{value_var}, #{ros_var})"
                 end
             end
+
             module OpaqueTypeExtension
                 # Convert a C++ value into the corresponding ROS value
                 # The C++ value is called 'value' and is a const-ref to the C++
@@ -541,11 +570,11 @@ module OroGen
                         buffer <<
                             "#{indent}#{target_type.cxx_name} temp;\n" <<
                             "#{indent}orogen_typekits::toIntermediate(temp, value);\n" <<
-                            "#{indent}#{target_type.call_to_ros("ros", "temp")};\n"
+                            "#{indent}#{target_type.call_to_ros('ros', 'temp')};\n"
                     else
                         buffer <<
                             "#{indent}#{target_type.arg_type} temp = orogen_typekits::toIntermediate(value);\n" <<
-                            "#{indent}#{target_type.call_to_ros("ros", "temp")};\n"
+                            "#{indent}#{target_type.call_to_ros('ros', 'temp')};\n"
                     end
                 end
 
@@ -561,16 +590,17 @@ module OroGen
                     if needs_copy
                         buffer <<
                             "#{indent}#{target_type.cxx_name} temp;\n" <<
-                            "#{indent}#{target_type.call_from_ros("temp", "ros")};\n"
+                            "#{indent}#{target_type.call_from_ros('temp', 'ros')};\n"
                         "#{indent}orogen_typekits::fromIntermediate(value, temp);\n"
                     else
                         buffer <<
                             "#{indent}std::auto_ptr< #{target_type.cxx_name} > temp(new #{target_type.cxx_name});\n" <<
-                            "#{indent}#{target_type.call_from_ros("*temp", "ros")};\n"
+                            "#{indent}#{target_type.call_from_ros('*temp', 'ros')};\n"
                         "#{indent}if (orogen_typekits::fromIntermediate(value, temp.get())) temp.release();\n"
                     end
                 end
             end
+
             module ArrayTypeExtension
                 def call_to_ros(ros_var, value_var)
                     "toROS(#{ros_var}, #{value_var}, #{length})"
@@ -586,11 +616,11 @@ module OroGen
                 #
                 # The method must return the string that will be used for
                 # convertion
-                def to_ros(typekit, buffer, indent)
+                def to_ros(_typekit, buffer, indent)
                     buffer <<
                         "#{indent}ros.resize(#{length});\n" <<
                         "#{indent}for (size_t idx = 0; idx < length; ++idx)\n" <<
-                        "#{indent}#{deference.call_to_ros("ros[idx]", "value[idx]")};\n"
+                        "#{indent}#{deference.call_to_ros('ros[idx]', 'value[idx]')};\n"
                 end
 
                 # Convert a C++ value into the corresponding ROS value
@@ -599,12 +629,13 @@ module OroGen
                 #
                 # The method must return the string that will be used for
                 # convertion
-                def from_ros(typekit, buffer, indent)
+                def from_ros(_typekit, buffer, indent)
                     buffer <<
                         "#{indent}for (size_t idx = 0; idx < length; ++idx)\n" <<
-                        "#{indent}#{deference.call_from_ros("value[idx]", "ros[idx]")};\n"
+                        "#{indent}#{deference.call_from_ros('value[idx]', 'ros[idx]')};\n"
                 end
             end
+
             module ContainerTypeExtension
                 # Convert a C++ value into the corresponding ROS value
                 # The C++ value is called 'value' and is a const-ref to the C++
@@ -612,14 +643,15 @@ module OroGen
                 #
                 # The method must return the string that will be used for
                 # convertion
-                def to_ros(typekit, buffer, indent)
+                def to_ros(_typekit, buffer, indent)
                     if deference.kind_of?(Typelib::NumericType)
                         buffer << "#{indent}ros = value;"
                     else
                         buffer <<
                             "#{indent}ros.resize(value.size());\n" <<
                             "#{indent}for (size_t idx = 0; idx < value.size(); ++idx)\n" <<
-                            "#{indent}#{deference.call_to_ros("ros[idx]", "value[idx]")};\n"
+                            "#{indent}#{deference.call_to_ros('ros[idx]',
+                                                              'value[idx]')};\n"
                     end
                 end
 
@@ -629,17 +661,19 @@ module OroGen
                 #
                 # The method must return the string that will be used for
                 # convertion
-                def from_ros(typekit, buffer, indent)
+                def from_ros(_typekit, buffer, indent)
                     if deference.kind_of?(Typelib::NumericType)
                         buffer << "#{indent}value = ros;"
                     else
                         buffer <<
                             "#{indent}value.resize(ros.size());\n" <<
                             "#{indent}for (size_t idx = 0; idx < ros.size(); ++idx)\n" <<
-                            "#{indent}#{deference.call_from_ros("value[idx]", "ros[idx]")};\n"
+                            "#{indent}#{deference.call_from_ros('value[idx]',
+                                                                'ros[idx]')};\n"
                     end
                 end
             end
+
             module CompoundTypeExtension
                 # Convert a C++ value into the corresponding ROS value
                 # The C++ value is called 'value' and is a const-ref to the C++
@@ -647,9 +681,10 @@ module OroGen
                 #
                 # The method must return the string that will be used for
                 # convertion
-                def to_ros(typekit, buffer, indent)
+                def to_ros(_typekit, buffer, indent)
                     each_field do |field_name, field_type|
-                        buffer << "#{indent}#{field_type.call_to_ros("ros.#{field_name}", "value.#{field_name}")};\n"
+                        buffer << "#{indent}#{field_type.call_to_ros("ros.#{field_name}",
+                                                                     "value.#{field_name}")};\n"
                     end
                 end
 
@@ -659,9 +694,11 @@ module OroGen
                 #
                 # The method must return the string that will be used for
                 # convertion
-                def from_ros(typekit, buffer, indent)
+                def from_ros(_typekit, buffer, indent)
                     each_field do |field_name, field_type|
-                        buffer << "#{indent}#{field_type.call_from_ros("value.#{field_name}", "ros.#{field_name}")};\n"
+                        buffer << "#{indent}#{field_type.call_from_ros(
+                            "value.#{field_name}", "ros.#{field_name}"
+                        )};\n"
                     end
                 end
             end

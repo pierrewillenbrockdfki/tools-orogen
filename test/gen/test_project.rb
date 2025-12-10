@@ -17,7 +17,9 @@ class TC_GenerationProject < Minitest::Test
 
             # No name
             project = RTT_CPP::Project.new
-            project.instance_variable_set(:@deffile, File.join(path_to_data, "empty_component.orogen"))
+            project.instance_variable_set(:@deffile,
+                                          File.join(path_to_data,
+                                                    "empty_component.orogen"))
             assert_raises(ArgumentError) { project.generate }
 
             # OK
@@ -55,7 +57,8 @@ class TC_GenerationProject < Minitest::Test
                 Project.load(io.path, false)
                 flunk "no exception thrown by load"
             rescue TypeError => e
-                assert_equal("#{io.path}:1", e.backtrace[0], "complete backtrace is:\n  #{e.backtrace.join("\n  ")}")
+                assert_equal("#{io.path}:1", e.backtrace[0],
+                             "complete backtrace is:\n  #{e.backtrace.join("\n  ")}")
                 assert_equal("custom exception", e.message)
             end
         end
@@ -94,7 +97,8 @@ class TC_GenerationProject < Minitest::Test
             tk = c.used_typekits.find { |t| t.name == "simple" }
             assert tk
             assert_equal("simple", tk.name)
-            assert_equal("simple-typekit-#{OroGen::Gen::RTT_CPP.orocos_target}", tk.pkg.name)
+            assert_equal("simple-typekit-#{OroGen::Gen::RTT_CPP.orocos_target}",
+                         tk.pkg.name)
 
             # Check that imported_type? takes the typekit into account
             t = c.registry.get "/Test/BaseTypes"

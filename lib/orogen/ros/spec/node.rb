@@ -27,7 +27,7 @@ module OroGen
                 # @return [OutputTopic]
                 def output_topic(topic_name, name, message_type)
                     data_type = project.ros_loader.map_message_type_to_orogen(message_type)
-                    topic = output_port(name, data_type, :class => OutputTopic)
+                    topic = output_port(name, data_type, class: OutputTopic)
                     topic.ros_name = ROS.normalize_topic_name(topic_name)
                     topic
                 end
@@ -42,7 +42,7 @@ module OroGen
                 # @return [InputTopic]
                 def input_topic(topic_name, name, message_type)
                     data_type = project.ros_loader.map_message_type_to_orogen(message_type)
-                    topic = input_port(name, data_type, :class => InputTopic)
+                    topic = input_port(name, data_type, class: InputTopic)
                     topic.ros_name = ROS.normalize_topic_name(topic_name)
                     topic
                 end
@@ -56,7 +56,8 @@ module OroGen
                 def ==(other)
                     if other.respond_to?(:ros_name)
                         if ros_name.empty? || other.ros_name.empty?
-                            raise ArgumentError, "Cannot compare ROS Spec node with empty ros_name: #{self} vs. #{other}"
+                            raise ArgumentError,
+                                  "Cannot compare ROS Spec node with empty ros_name: #{self} vs. #{other}"
                         end
 
                         return ros_name == other.ros_name && ros_package == other.ros_package

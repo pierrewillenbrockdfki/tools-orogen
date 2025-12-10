@@ -7,40 +7,43 @@ describe OroGen::Loaders::PkgConfig do
     attr_reader :fixtures_prefix
 
     def stub_pkgconfig_package(pkg_name, pkg)
-        @pkg_config ||= Hash.new
+        @pkg_config ||= {}
         pkg_config[pkg_name] = pkg
         flexmock(Utilrb::PkgConfig).should_receive(:get)
                                    .with(pkg_name, Hash).and_return(pkg)
     end
 
     def stub_pkgconfig_each_package(filter)
-        @pkg_config ||= Hash.new
-        mock = flexmock(Utilrb::PkgConfig).should_receive(:each_package).with(filter, Proc)
-        packages = pkg_config.find_all { |name, pkg| filter === name }
-        unless packages.empty?
-            mock.and_iterates(*packages.map(&:first))
-        end
+        @pkg_config ||= {}
+        mock = flexmock(Utilrb::PkgConfig).should_receive(:each_package).with(filter,
+                                                                              Proc)
+        packages = pkg_config.find_all { |name, _pkg| filter === name }
+        return if packages.empty?
+
+        mock.and_iterates(*packages.map(&:first))
     end
 
     def stub_orogen_pkgconfig_final
-        stub_pkgconfig_each_package /^orogen-project-/
-        stub_pkgconfig_each_package /-tasks-oroarch$/
-        stub_pkgconfig_each_package /^orogen-\w+$/
-        stub_pkgconfig_each_package /-typekit-oroarch$/
-        flexmock(Utilrb::PkgConfig).should_receive(:get).with(String, Hash).and_return { raise Utilrb::PkgConfig::NotFound.new("not found") }
+        stub_pkgconfig_each_package(/^orogen-project-/)
+        stub_pkgconfig_each_package(/-tasks-oroarch$/)
+        stub_pkgconfig_each_package(/^orogen-\w+$/)
+        stub_pkgconfig_each_package(/-typekit-oroarch$/)
+        flexmock(Utilrb::PkgConfig).should_receive(:get).with(String, Hash).and_return do
+            raise Utilrb::PkgConfig::NotFound.new("not found")
+        end
     end
 
-    def stub_orogen_pkgconfig(name, task_models = Array.new, deployed_tasks = Array.new)
+    def stub_orogen_pkgconfig(name, task_models = [], deployed_tasks = [])
         deffile = File.join(fixtures_prefix, "deffile", "base.orogen")
         type_registry = File.join(fixtures_prefix, "typekit", "#{name}.tlb")
         type_registry = nil unless File.exist?(type_registry)
         pkg = flexmock(
-            :project_name => name,
-            :deffile => deffile,
-            :type_registry => type_registry,
-            :task_models => task_models.join(","),
-            :deployed_tasks_with_models => deployed_tasks.join(","),
-            :binfile => "/path/to/binfile/#{name}"
+            project_name: name,
+            deffile: deffile,
+            type_registry: type_registry,
+            task_models: task_models.join(","),
+            deployed_tasks_with_models: deployed_tasks.join(","),
+            binfile: "/path/to/binfile/#{name}"
         )
         stub_pkgconfig_package("orogen-project-#{name}", pkg)
         stub_pkgconfig_package("#{name}-typekit-oroarch", pkg)
@@ -50,7 +53,8 @@ describe OroGen::Loaders::PkgConfig do
     end
 
     before do
-        @fixtures_prefix = File.join(File.dirname(__FILE__), "..", "fixtures", "pkgconfig_loader")
+        @fixtures_prefix = File.join(File.dirname(__FILE__), "..", "fixtures",
+                                     "pkgconfig_loader")
     end
     after do
         flexmock_teardown
@@ -103,12 +107,12 @@ describe OroGen::Loaders::PkgConfig do
         end
         it "returns false if the corresponding project does not exist" do
             pkg = flexmock(
-                :project_name => "base",
-                :deffile => File.join(fixtures_prefix, "deffile", "base.orogen"),
-                :type_registry => nil,
-                :task_models => "",
-                :deployed_tasks_with_models => "",
-                :path => "bla"
+                project_name: "base",
+                deffile: File.join(fixtures_prefix, "deffile", "base.orogen"),
+                type_registry: nil,
+                task_models: "",
+                deployed_tasks_with_models: "",
+                path: "bla"
             )
             stub_pkgconfig_package("base-typekit-oroarch", pkg)
             stub_orogen_pkgconfig_final
@@ -116,12 +120,12 @@ describe OroGen::Loaders::PkgConfig do
         end
         it "returns false if the corresponding project does not have a type_registry field" do
             pkg = flexmock(
-                :project_name => "base",
-                :deffile => File.join(fixtures_prefix, "deffile", "base.orogen"),
-                :type_registry => nil,
-                :task_models => "",
-                :deployed_tasks_with_models => "",
-                :path => "bla"
+                project_name: "base",
+                deffile: File.join(fixtures_prefix, "deffile", "base.orogen"),
+                type_registry: nil,
+                task_models: "",
+                deployed_tasks_with_models: "",
+                path: "bla"
             )
             stub_pkgconfig_package("orogen-project-base", pkg)
             stub_pkgconfig_package("base-typekit-oroarch", pkg)
@@ -151,8 +155,10 @@ describe OroGen::Loaders::PkgConfig do
 
     describe "#each_available_deployment_name" do
         it "enumerates the deployments" do
-            stub_orogen_pkgconfig "base", ["base::Task"], ["deployment1", "base::Task", "deployment2", "base::Task"]
-            stub_orogen_pkgconfig "test", ["test::Task"], ["deployment1", "test::Task", "deployment3", "test::Task"]
+            stub_orogen_pkgconfig "base", ["base::Task"],
+                                  ["deployment1", "base::Task", "deployment2", "base::Task"]
+            stub_orogen_pkgconfig "test", ["test::Task"],
+                                  ["deployment1", "test::Task", "deployment3", "test::Task"]
             stub_orogen_pkgconfig_final
             loader = OroGen::Loaders::PkgConfig.new("oroarch")
             assert_equal Set["base", "test"], loader.each_available_deployment_name.to_set
@@ -161,8 +167,10 @@ describe OroGen::Loaders::PkgConfig do
 
     describe "#each_available_deployed_task" do
         it "enumerates the deployments" do
-            stub_orogen_pkgconfig "base", ["base::Task"], ["deployment1", "base::Task", "deployment2", "test::Task"]
-            stub_orogen_pkgconfig "test", ["test::Task"], ["deployment1", "test::Task", "deployment3", "base::Task"]
+            stub_orogen_pkgconfig "base", ["base::Task"],
+                                  ["deployment1", "base::Task", "deployment2", "test::Task"]
+            stub_orogen_pkgconfig "test", ["test::Task"],
+                                  ["deployment1", "test::Task", "deployment3", "base::Task"]
             stub_orogen_pkgconfig_final
             expected = [
                 OroGen::Loaders::PkgConfig::AvailableDeployedTask.new(
@@ -194,8 +202,10 @@ describe OroGen::Loaders::PkgConfig do
             assert_nil loader.find_basic_deployed_task_info("does_not_exist")
         end
         it "returns the task info of the matching deployed tasks" do
-            stub_orogen_pkgconfig "base", ["base::Task"], ["deployment1", "base::Task", "deployment2", "test::Task"]
-            stub_orogen_pkgconfig "test", ["test::Task"], ["deployment1", "test::Task", "deployment3", "base::Task"]
+            stub_orogen_pkgconfig "base", ["base::Task"],
+                                  ["deployment1", "base::Task", "deployment2", "test::Task"]
+            stub_orogen_pkgconfig "test", ["test::Task"],
+                                  ["deployment1", "test::Task", "deployment3", "base::Task"]
             stub_orogen_pkgconfig_final
             loader = OroGen::Loaders::PkgConfig.new("oroarch")
             expected = Set[
@@ -204,7 +214,7 @@ describe OroGen::Loaders::PkgConfig do
                 ),
                 OroGen::Loaders::PkgConfig::AvailableDeployedTask.new(
                     "deployment1", "test", "test::Task", "test"
-                ),
+                )
             ]
             assert_equal expected, loader
                 .find_basic_deployed_task_info("deployment1")
@@ -264,11 +274,15 @@ describe OroGen::Loaders::PkgConfig do
         end
 
         it "raises if the required type cannot be found" do
-            assert_raises(OroGen::NotTypekitType) { loader.typekit_for("/base/does_not_exist") }
+            assert_raises(OroGen::NotTypekitType) do
+                loader.typekit_for("/base/does_not_exist")
+            end
         end
 
         it "raises if the required type is not exported and 'exported' is true" do
-            assert_raises(OroGen::NotExportedType) { loader.typekit_for("/base/JointLimitRange", true) }
+            assert_raises(OroGen::NotExportedType) do
+                loader.typekit_for("/base/JointLimitRange", true)
+            end
         end
 
         it "accepts a type object as argument" do
@@ -298,7 +312,7 @@ describe OroGen::Loaders::PkgConfig do
             e = assert_raises(OroGen::NotExportedType) do
                 loader.typekit_for("/base/JointLimitRange", true)
             end
-            assert_match /Test/, e.message
+            assert_match(/Test/, e.message)
             assert_equal [tk], e.typekits
         end
 
@@ -323,12 +337,12 @@ describe OroGen::Loaders::PkgConfig do
 
     it "should not register the type library if the corresponding project does not exist" do
         pkg = flexmock(
-            :project_name => "base",
-            :deffile => File.join(fixtures_prefix, "deffile", "base.orogen"),
-            :type_registry => nil,
-            :task_models => "",
-            :deployed_tasks_with_models => "",
-            :path => "bla"
+            project_name: "base",
+            deffile: File.join(fixtures_prefix, "deffile", "base.orogen"),
+            type_registry: nil,
+            task_models: "",
+            deployed_tasks_with_models: "",
+            path: "bla"
         )
         stub_pkgconfig_package("base-tasks-oroarch", pkg)
         stub_orogen_pkgconfig_final
@@ -339,12 +353,12 @@ describe OroGen::Loaders::PkgConfig do
     describe "#find_task_library_from_task_model_name" do
         before do
             pkg = flexmock(
-                :project_name => "base",
-                :deffile => File.join(fixtures_prefix, "deffile", "base.orogen"),
-                :task_models => "base::Task,base::other::Task",
-                :deployed_tasks_with_models => "",
-                :path => "bla",
-                :binfile => "/path/to/binfile"
+                project_name: "base",
+                deffile: File.join(fixtures_prefix, "deffile", "base.orogen"),
+                task_models: "base::Task,base::other::Task",
+                deployed_tasks_with_models: "",
+                path: "bla",
+                binfile: "/path/to/binfile"
             )
             stub_pkgconfig_package("base-tasks-oroarch", pkg)
             stub_orogen_pkgconfig_final
@@ -352,9 +366,11 @@ describe OroGen::Loaders::PkgConfig do
         let(:loader) { OroGen::Loaders::PkgConfig.new("oroarch") }
 
         it "returns the project name if the task's namespace is a known project that lists the model" do
-            assert_equal "base", loader.find_task_library_from_task_model_name("base::Task")
+            assert_equal "base",
+                         loader.find_task_library_from_task_model_name("base::Task")
             flexmock(Utilrb::PkgConfig).should_receive(:get).never
-            assert_equal "base", loader.find_task_library_from_task_model_name("base::Task")
+            assert_equal "base",
+                         loader.find_task_library_from_task_model_name("base::Task")
         end
         it "returns nil if the task's namespace is not a known project" do
             assert_nil loader.find_task_library_from_task_model_name("undefined_project::Task")
@@ -367,37 +383,45 @@ describe OroGen::Loaders::PkgConfig do
             assert_nil loader.find_task_library_from_task_model_name("base::UndefinedTask")
         end
         it "handles nested namespaces" do
-            assert_equal "base", loader.find_task_library_from_task_model_name("base::other::Task")
+            assert_equal "base",
+                         loader.find_task_library_from_task_model_name("base::other::Task")
             flexmock(Utilrb::PkgConfig).should_receive(:get).never
-            assert_equal "base", loader.find_task_library_from_task_model_name("base::other::Task")
+            assert_equal "base",
+                         loader.find_task_library_from_task_model_name("base::other::Task")
         end
     end
 
     describe "#find_deployments_from_deployed_task_name" do
         it "resolves the deployments that provide the corresponding task name" do
-            stub_orogen_pkgconfig "base", ["base::Task"], ["deployment1", "base::Task", "deployment2", "base::Task"]
-            stub_orogen_pkgconfig "test", ["test::Task"], ["deployment1", "test::Task", "deployment3", "test::Task"]
+            stub_orogen_pkgconfig "base", ["base::Task"],
+                                  ["deployment1", "base::Task", "deployment2", "base::Task"]
+            stub_orogen_pkgconfig "test", ["test::Task"],
+                                  ["deployment1", "test::Task", "deployment3", "test::Task"]
             stub_orogen_pkgconfig_final
             loader = OroGen::Loaders::PkgConfig.new("oroarch")
             assert_equal "base", loader.find_project_from_deployment_name("base")
-            assert_equal %w[base test].to_set, loader.find_deployments_from_deployed_task_name("deployment1").to_set
-            assert_equal ["base"], loader.find_deployments_from_deployed_task_name("deployment2")
+            assert_equal %w[base test].to_set,
+                         loader.find_deployments_from_deployed_task_name("deployment1").to_set
+            assert_equal ["base"],
+                         loader.find_deployments_from_deployed_task_name("deployment2")
 
             flexmock(Utilrb::PkgConfig).should_receive(:get).never
             assert_equal "base", loader.find_project_from_deployment_name("base")
-            assert_equal %w[base test].to_set, loader.find_deployments_from_deployed_task_name("deployment1").to_set
-            assert_equal ["base"], loader.find_deployments_from_deployed_task_name("deployment2")
+            assert_equal %w[base test].to_set,
+                         loader.find_deployments_from_deployed_task_name("deployment1").to_set
+            assert_equal ["base"],
+                         loader.find_deployments_from_deployed_task_name("deployment2")
         end
 
         it "ignores deployments whose project does not exist" do
             pkg = flexmock(
-                :project_name => "base",
-                :deffile => File.join(fixtures_prefix, "deffile", "base.orogen"),
-                :type_registry => nil,
-                :task_models => "",
-                :deployed_tasks_with_models => "",
-                :path => "bla",
-                :binfile => "/path/to/binfile"
+                project_name: "base",
+                deffile: File.join(fixtures_prefix, "deffile", "base.orogen"),
+                type_registry: nil,
+                task_models: "",
+                deployed_tasks_with_models: "",
+                path: "bla",
+                binfile: "/path/to/binfile"
             )
             stub_pkgconfig_package("orogen-base", pkg)
             stub_orogen_pkgconfig_final
@@ -409,7 +433,8 @@ describe OroGen::Loaders::PkgConfig do
 
     describe "find_deployment_binfile" do
         it "returns the binary file of a known deployment" do
-            stub_orogen_pkgconfig "base", ["base::Task"], ["deployment1", "base::Task", "deployment2", "base::Task"]
+            stub_orogen_pkgconfig "base", ["base::Task"],
+                                  ["deployment1", "base::Task", "deployment2", "base::Task"]
             stub_orogen_pkgconfig_final
             loader = OroGen::Loaders::PkgConfig.new("oroarch")
             assert_equal "/path/to/binfile/base", loader.find_deployment_binfile("base")
@@ -432,7 +457,9 @@ describe OroGen::Loaders::PkgConfig do
         it "should raise OroGen::ProjectNotFound for unknown projects" do
             stub_orogen_pkgconfig_final
             loader = OroGen::Loaders::PkgConfig.new("oroarch")
-            assert_raises(OroGen::ProjectNotFound) { loader.project_model_text_from_name("base") }
+            assert_raises(OroGen::ProjectNotFound) do
+                loader.project_model_text_from_name("base")
+            end
         end
     end
 
@@ -449,7 +476,9 @@ describe OroGen::Loaders::PkgConfig do
         it "should raise OroGen::TypekitNotFound for unknown projects" do
             stub_orogen_pkgconfig_final
             loader = OroGen::Loaders::PkgConfig.new("oroarch")
-            assert_raises(OroGen::TypekitNotFound) { loader.typekit_model_text_from_name("base") }
+            assert_raises(OroGen::TypekitNotFound) do
+                loader.typekit_model_text_from_name("base")
+            end
         end
     end
 

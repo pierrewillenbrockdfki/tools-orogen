@@ -4,6 +4,7 @@ require "orogen/test"
 
 describe OroGen::Spec::TaskContext do
     attr_reader :project, :loader, :task
+
     before do
         @loader = OroGen::Loaders::Files.new
         OroGen::Loaders::RTT.setup_loader(loader)
@@ -14,6 +15,7 @@ describe OroGen::Spec::TaskContext do
 
     describe "#task_model_from_name" do
         attr_reader :dependency_task
+
         before do
             # Create another project
             dependency = OroGen::Spec::Project.new(loader)
@@ -29,10 +31,14 @@ describe OroGen::Spec::TaskContext do
             assert_equal(task, project.task_model_from_name("base::Task"))
         end
         it "should raise ArgumentError if the task does not exist" do
-            assert_raises(OroGen::TaskModelNotFound) { project.task_model_from_name("Bla") }
+            assert_raises(OroGen::TaskModelNotFound) do
+                project.task_model_from_name("Bla")
+            end
         end
         it "should raise ArgumentError if a task from a dependency is required as a relative name" do
-            assert_raises(OroGen::TaskModelNotFound) { project.task_model_from_name("Foo") }
+            assert_raises(OroGen::TaskModelNotFound) do
+                project.task_model_from_name("Foo")
+            end
         end
         it "should resolve tasks from a dependency by full name" do
             assert_equal dependency_task, project.task_model_from_name("dependency::Foo")
@@ -41,6 +47,7 @@ describe OroGen::Spec::TaskContext do
 
     describe "#find_task_context" do
         attr_reader :dependency_task
+
         before do
             # Create another project
             dependency = OroGen::Spec::Project.new(loader)
@@ -177,6 +184,7 @@ describe OroGen::Spec::TaskContext do
 
     describe "dynamic port support" do
         attr_reader :input_port, :output_port
+
         before do
             @input_port = task.dynamic_input_port(/r$/, "/int")
             @output_port = task.dynamic_output_port(/w$/, "/int")
@@ -201,11 +209,13 @@ describe OroGen::Spec::TaskContext do
         end
         describe "#has_dynamic_input_port?" do
             it "returns false if #find_dynamic_input_ports returns an empty set" do
-                flexmock(task).should_receive(:find_dynamic_input_ports).with("name", "/type").and_return([])
+                flexmock(task).should_receive(:find_dynamic_input_ports).with("name",
+                                                                              "/type").and_return([])
                 assert !task.has_dynamic_input_port?("name", "/type")
             end
             it "returns true if #find_dynamic_input_ports returns a non-empty set" do
-                flexmock(task).should_receive(:find_dynamic_input_ports).with("name", "/type").and_return([true])
+                flexmock(task).should_receive(:find_dynamic_input_ports).with("name",
+                                                                              "/type").and_return([true])
                 assert task.has_dynamic_input_port?("name", "/type")
             end
         end
@@ -228,20 +238,24 @@ describe OroGen::Spec::TaskContext do
         end
         describe "#has_dynamic_output_port?" do
             it "returns false if #find_dynamic_output_ports returns an empty set" do
-                flexmock(task).should_receive(:find_dynamic_output_ports).with("name", "/type").and_return([])
+                flexmock(task).should_receive(:find_dynamic_output_ports).with("name",
+                                                                               "/type").and_return([])
                 assert !task.has_dynamic_output_port?("name", "/type")
             end
             it "returns true if #find_dynamic_output_ports returns a non-empty set" do
-                flexmock(task).should_receive(:find_dynamic_output_ports).with("name", "/type").and_return([true])
+                flexmock(task).should_receive(:find_dynamic_output_ports).with("name",
+                                                                               "/type").and_return([true])
                 assert task.has_dynamic_output_port?("name", "/type")
             end
         end
 
         describe "in subclasses" do
             attr_reader :parent_task
+
             before do
                 @parent_task = task
-                @task = OroGen::Spec::TaskContext.new(parent_task.project, subclasses: parent_task)
+                @task = OroGen::Spec::TaskContext.new(parent_task.project,
+                                                      subclasses: parent_task)
             end
 
             describe "#each_dynamic_input_port" do
@@ -259,6 +273,7 @@ describe OroGen::Spec::TaskContext do
 
     describe "#to_h" do
         attr_reader :task
+
         before do
             @task = OroGen::Spec::TaskContext.new(create_dummy_project, "test::Task")
         end

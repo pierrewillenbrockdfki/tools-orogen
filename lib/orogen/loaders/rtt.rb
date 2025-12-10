@@ -3,7 +3,7 @@
 module OroGen
     module Loaders
         class RTT < PkgConfig
-            DIR = File.join(File.expand_path(File.dirname(__FILE__)), "rtt")
+            DIR = File.join(__dir__, "rtt")
             STANDARD_PROJECT_SPECS = { "RTT" => DIR, "OCL" => DIR }
             STANDARD_TYPEKIT_SPECS = { "orocos" => DIR }
             def self.loader
@@ -22,27 +22,24 @@ module OroGen
             end
 
             def self.standard_projects(loader: self.loader)
-                unless @standard_projects
-                    @standard_projects = STANDARD_PROJECT_SPECS.map do |name, dir|
-                        loader.project_model_from_name(name)
-                    end
+                @standard_projects ||= STANDARD_PROJECT_SPECS.map do |name, _dir|
+                    loader.project_model_from_name(name)
                 end
                 @standard_projects
             end
 
             def self.standard_typekits(loader: self.loader)
-                unless @standard_typekits
-                    @standard_typekits = STANDARD_TYPEKIT_SPECS.map do |name, _|
-                        typekit = loader.typekit_model_from_name(name)
-                        typekit.virtual = true
-                        # Some fine-tuning :( Super-HACK
-                        if name == "orocos"
-                            type = typekit.registry.create_container "/std/string", "/std/string"
-                            type.metadata.set "orogen_include", "string"
-                            typekit.registry.alias "/string", "/std/string"
-                        end
-                        typekit
+                @standard_typekits ||= STANDARD_TYPEKIT_SPECS.map do |name, _|
+                    typekit = loader.typekit_model_from_name(name)
+                    typekit.virtual = true
+                    # Some fine-tuning :( Super-HACK
+                    if name == "orocos"
+                        type = typekit.registry.create_container "/std/string",
+                                                                 "/std/string"
+                        type.metadata.set "orogen_include", "string"
+                        typekit.registry.alias "/string", "/std/string"
                     end
+                    typekit
                 end
                 @standard_typekits
             end
@@ -55,7 +52,7 @@ module OroGen
                     # tk.typelist manually. This is needed as we use the
                     # typelist to register non-normalized names
                     tk.typelist.each do |typename|
-                        loader.typekits_by_type_name[typename] ||= Array.new
+                        loader.typekits_by_type_name[typename] ||= []
                         loader.typekits_by_type_name[typename] << tk
                     end
                 end

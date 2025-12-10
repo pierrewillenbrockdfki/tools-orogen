@@ -15,38 +15,31 @@ module OroGen
             def __normalize_typename(type)
                 if type.respond_to?(:to_str)
                     ::Typelib::GCCXMLLoader.cxx_to_typelib(type)
-                else type
+                else
+                    type
                 end
             end
 
             def property(name, type, *args, &block)
                 model = super(name, __normalize_typename(type), *args, &block)
-                if @load_doc
-                    ::OroGen::Spec.load_documentation(model, /^property/)
-                end
+                ::OroGen::Spec.load_documentation(model, /^property/) if @load_doc
                 model
             end
 
             def input_port(name, type, *args, &block)
                 model = super(name, __normalize_typename(type), *args, &block)
-                if @load_doc
-                    ::OroGen::Spec.load_documentation(model, /^input_port/)
-                end
+                ::OroGen::Spec.load_documentation(model, /^input_port/) if @load_doc
                 model
             end
 
             def output_port(name, type, *args, &block)
                 model = super(name, __normalize_typename(type), *args, &block)
-                if @load_doc
-                    ::OroGen::Spec.load_documentation(model, /^output_port/)
-                end
+                ::OroGen::Spec.load_documentation(model, /^output_port/) if @load_doc
                 model
             end
 
             def dynamic_input_port(name, type, *args, &block)
-                type = if type
-                           __normalize_typename(type)
-                       end
+                type = (__normalize_typename(type) if type)
 
                 model = super(name, type, *args, &block)
                 if @load_doc
@@ -56,9 +49,7 @@ module OroGen
             end
 
             def dynamic_output_port(name, type, *args, &block)
-                type = if type
-                           __normalize_typename(type)
-                       end
+                type = (__normalize_typename(type) if type)
 
                 model = super(name, type, *args, &block)
                 if @load_doc
@@ -69,9 +60,7 @@ module OroGen
 
             def operation(*args, &block)
                 model = super
-                if @load_doc
-                    ::OroGen::Spec.load_documentation(model, /^operation/)
-                end
+                ::OroGen::Spec.load_documentation(model, /^operation/) if @load_doc
                 model
             end
 
@@ -87,8 +76,7 @@ module OroGen
         class BlackHole < BasicObject
             # This is a black hole, we don't get any information from the orogen
             # file for the typekit
-            def method_missing(*args)
-            end
+            def method_missing(*args); end
         end
 
         # Class that allows to load an oroGen file to build a {Spec::Project}
@@ -127,19 +115,17 @@ module OroGen
                 # model is nil if the task context's namespace is disabled.
                 # This really should be done at the loader level, but for now
                 # it's done at the spec level. So be it
-                if model && @load_doc
-                    Spec.load_documentation(model, /^task_context/)
-                end
+                Spec.load_documentation(model, /^task_context/) if model && @load_doc
                 model
             end
 
             def method_missing(m, *args, **kw, &block)
-                if @spec.respond_to?(m)
-                    if kw.empty?
-                        @spec.send(m, *args, &block)
-                    else
-                        @spec.send(m, *args, **kw, &block)
-                    end
+                return unless @spec.respond_to?(m)
+
+                if kw.empty?
+                    @spec.send(m, *args, &block)
+                else
+                    @spec.send(m, *args, **kw, &block)
                 end
             end
 
@@ -161,7 +147,8 @@ module OroGen
                 __eval__(deffile, File.read(deffile), verbose)
             end
 
-            def __eval__(deffile, deftext, verbose = (::OroGen.logger.level == ::Logger::DEBUG))
+            def __eval__(deffile, deftext,
+                verbose = (::OroGen.logger.level == ::Logger::DEBUG))
                 if !deffile
                     @load_doc = false
                     instance_eval deftext
@@ -177,8 +164,12 @@ module OroGen
                     this_level = ::Kernel.caller.size
                     until_here = e.backtrace[-(this_level - 1)..-1] || []
                     subcalls = e.backtrace[0, e.backtrace.size - this_level - 1] || []
-                    subcalls.delete_if { |line| line =~ /eval|method_missing/ && line !~ /\.orogen/ }
-                    subcalls = subcalls.map { |line| line.gsub(/:in `(?:block in )?__eval__'/, "") }
+                    subcalls.delete_if do |line|
+                        line =~ /eval|method_missing/ && line !~ /\.orogen/
+                    end
+                    subcalls = subcalls.map do |line|
+                        line.gsub(/:in `(?:block in )?__eval__'/, "")
+                    end
                     ::Kernel.raise e, e.message, (subcalls + until_here)
                 end
             end

@@ -9,7 +9,7 @@ require "pathname"
 # Disable typelib plugin loading
 Typelib.load_type_plugins = false
 
-DEFAULT_TRANSPORTS = %w{corba typelib mqueue}
+DEFAULT_TRANSPORTS = %w[corba typelib mqueue]
 
 rtt_cpp = OroGen::Gen::RTT_CPP
 
@@ -22,42 +22,44 @@ parser = OptionParser.new do |opt|
     available_transports = rtt_cpp::Typekit.plugins.keys
     available_transports.delete("type_info")
     available_transports = available_transports.sort.join(", ")
-    opt.banner = <<-EOF
-usage: typegen [--transports=NAME1,NAME2] [--output=output_dir] [--import=LIBRARY,TYPEKIT] name inputs
-this installation of typegen knows the following transports: #{available_transports}
+    opt.banner = <<~EOF
+        usage: typegen [--transports=NAME1,NAME2] [--output=output_dir] [--import=LIBRARY,TYPEKIT] name inputs
+        this installation of typegen knows the following transports: #{available_transports}
     EOF
 
-    opt.on("-i LIBRARY", "--import=LIBRARY", String, "a library or typekit to get headers and/or types from, using its pkg-config name") do |name|
-        begin
-            pkg = Utilrb::PkgConfig.new(name)
-            if pkg.type_registry
-                newtypekit = typekit_loader.load_typekit(pkg.project_name)
-                typekit.using_typekit(newtypekit)
-            else
-                typekit.using_library(pkg)
-            end
-        rescue Utilrb::PkgConfig::NotFound
-            STDERR.puts "#{name} cannot be found by pkg-config"
-            exit(1)
+    opt.on("-i LIBRARY", "--import=LIBRARY", String,
+           "a library or typekit to get headers and/or types from, using its pkg-config name") do |name|
+        pkg = Utilrb::PkgConfig.new(name)
+        if pkg.type_registry
+            newtypekit = typekit_loader.load_typekit(pkg.project_name)
+            typekit.using_typekit(newtypekit)
+        else
+            typekit.using_library(pkg)
         end
+    rescue Utilrb::PkgConfig::NotFound
+        warn "#{name} cannot be found by pkg-config"
+        exit(1)
     end
 
-    opt.on("-n NAME1,NAME1", "--notransports=NAME1,NAME2", String, "list of transports to disable (by default, #{DEFAULT_TRANSPORTS.join(", ")} are enabled)") do |notransports|
+    opt.on("-n NAME1,NAME1", "--notransports=NAME1,NAME2", String,
+           "list of transports to disable (by default, #{DEFAULT_TRANSPORTS.join(', ')} are enabled)") do |notransports|
         notransports.split(",").each do |name|
             transports.delete(name)
         end
     end
 
-    opt.on("-t NAME1,NAME2", "--transports=NAME1,NAME2", String, "list of transports to enable only (by default, #{DEFAULT_TRANSPORTS.join(", ")} are enabled)") do |onlytransports|
+    opt.on("-t NAME1,NAME2", "--transports=NAME1,NAME2", String,
+           "list of transports to enable only (by default, #{DEFAULT_TRANSPORTS.join(', ')} are enabled)") do |onlytransports|
         transports.clear
         onlytransports.split(",").each do |name|
             transports << name
         end
     end
 
-    opt.on("-o DIR", "--output=DIR", String, "the directory to which the generated typekit should be written") do |dir|
+    opt.on("-o DIR", "--output=DIR", String,
+           "the directory to which the generated typekit should be written") do |dir|
         if dir.empty?
-            STDERR.puts "you must give a non-empty path to the --output option"
+            warn "you must give a non-empty path to the --output option"
             exit 1
         end
         typekit.automatic_dir = File.expand_path(dir)
@@ -84,9 +86,7 @@ if remaining.size < 2
 end
 
 typekit.name = remaining.shift
-unless typekit.automatic_dir
-    typekit.automatic_dir = typekit.name
-end
+typekit.automatic_dir = typekit.name unless typekit.automatic_dir
 rtt_cpp.generation_directory = Dir.pwd
 rtt_cpp.relative_generation_directory = Pathname.new(Dir.pwd).relative_path_from(Pathname.new(typekit.automatic_dir))
 rtt_cpp.command_line_options = original_options
@@ -99,16 +99,14 @@ remaining.each do |path|
         typekit.user_dir ||= File.expand_path(path)
         typekit.base_dir ||= typekit.user_dir
         Find.find(path) do |file|
-            if path !~ /Typekit/ && File.file?(file)
-                typekit.load(file)
-            end
+            typekit.load(file) if path !~ /Typekit/ && File.file?(file)
         end
     elsif File.file?(path)
         typekit.user_dir ||= File.dirname(File.expand_path(path))
         typekit.base_dir ||= File.dirname(typekit.user_dir)
         typekit.load(path)
     else
-        STDERR.puts "#{path} is neither a file nor a directory"
+        warn "#{path} is neither a file nor a directory"
     end
 end
 

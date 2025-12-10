@@ -10,7 +10,7 @@ module OroGen
             attr_reader :loaders
 
             def initialize(root_loader = self)
-                @loaders = Array.new
+                @loaders = []
                 super(root_loader)
             end
 
@@ -36,16 +36,14 @@ module OroGen
             end
 
             def project_model_text_from_name(name)
-                OroGen::Loaders.debug "Aggregate: resolving #{name} on #{loaders.map(&:to_s).join(",")}"
+                OroGen::Loaders.debug "Aggregate: resolving #{name} on #{loaders.map(&:to_s).join(',')}"
                 loaders.each do |l|
-                    begin
-                        # We assume that the sub-loaders are created with self
-                        # as root loader. They will therefore register
-                        # themselves on self
-                        return l.project_model_text_from_name(name)
-                    rescue ProjectNotFound => e
-                        Loaders.debug "  not available on #{l}: #{e}"
-                    end
+                    # We assume that the sub-loaders are created with self
+                    # as root loader. They will therefore register
+                    # themselves on self
+                    return l.project_model_text_from_name(name)
+                rescue ProjectNotFound => e
+                    Loaders.debug "  not available on #{l}: #{e}"
                 end
                 raise ProjectNotFound, "there is no project named #{name} on #{self}"
             end
@@ -55,16 +53,14 @@ module OroGen
                     return project
                 end
 
-                OroGen::Loaders.debug "Aggregate: resolving #{name} on #{loaders.map(&:to_s).join(",")}"
+                OroGen::Loaders.debug "Aggregate: resolving #{name} on #{loaders.map(&:to_s).join(',')}"
                 loaders.each do |l|
-                    begin
-                        # We assume that the sub-loaders are created with self
-                        # as root loader. They will therefore register
-                        # themselves on self
-                        return l.project_model_from_name(name)
-                    rescue ProjectNotFound => e
-                        Loaders.debug "  not available on #{l}: #{e}"
-                    end
+                    # We assume that the sub-loaders are created with self
+                    # as root loader. They will therefore register
+                    # themselves on self
+                    return l.project_model_from_name(name)
+                rescue ProjectNotFound => e
+                    Loaders.debug "  not available on #{l}: #{e}"
                 end
                 raise ProjectNotFound, "there is no project named #{name} on #{self}"
             end
@@ -74,16 +70,14 @@ module OroGen
                     return model
                 end
 
-                OroGen::Loaders.debug "Aggregate: resolving task model #{name} on #{loaders.map(&:to_s).join(",")}"
+                OroGen::Loaders.debug "Aggregate: resolving task model #{name} on #{loaders.map(&:to_s).join(',')}"
                 loaders.each do |l|
-                    begin
-                        # We assume that the sub-loaders are created with self
-                        # as root loader. They will therefore register
-                        # themselves on self
-                        return loaded_task_models[name] = l.task_model_from_name(name)
-                    rescue ProjectNotFound => e
-                        Loaders.debug "  not available on #{l}: #{e}"
-                    end
+                    # We assume that the sub-loaders are created with self
+                    # as root loader. They will therefore register
+                    # themselves on self
+                    return loaded_task_models[name] = l.task_model_from_name(name)
+                rescue ProjectNotFound => e
+                    Loaders.debug "  not available on #{l}: #{e}"
                 end
                 raise TaskModelNotFound, "there is no task model named #{name} on #{self}"
             end
@@ -118,13 +112,11 @@ module OroGen
                 end
 
                 loaders.each do |l|
-                    begin
-                        # We assume that the sub-loaders are created with self
-                        # as root loader. They will therefore register
-                        # themselves on self
-                        return l.typekit_model_from_name(name)
-                    rescue TypekitNotFound
-                    end
+                    # We assume that the sub-loaders are created with self
+                    # as root loader. They will therefore register
+                    # themselves on self
+                    return l.typekit_model_from_name(name)
+                rescue TypekitNotFound
                 end
                 raise TypekitNotFound, "there is no typekit named #{name} on #{self}"
             end
@@ -132,17 +124,18 @@ module OroGen
             def typekit_for(type, exported = true)
                 typename = if type.respond_to?(:name)
                                type.name
-                           else type
+                           else
+                               type
                            end
 
                 if (typekits = typekits_by_type_name[typename])
-                    if exported
-                        if (export_tk = typekits.find_all { |tk| tk.interface_type?(typename) }.first)
-                            return export_tk
-                        end
-                    else
-                        return typekits.first
+                    return typekits.first unless exported
+                    if (export_tk = typekits.find_all do |tk|
+                        tk.interface_type?(typename)
+                    end.first)
+                        return export_tk
                     end
+
                 end
 
                 loaders.each do |l|
@@ -153,7 +146,8 @@ module OroGen
                     rescue NotExportedType, NotTypekitType
                     end
                 end
-                raise NotTypekitType.new(type), "#{type} is not defined by any typekit known to #{self}"
+                raise NotTypekitType.new(type),
+                      "#{type} is not defined by any typekit known to #{self}"
             end
 
             def has_typekit?(name)
@@ -188,24 +182,23 @@ module OroGen
                 end
 
                 OroGen::Loaders.debug do
-                    "Aggregate: resolving deployment #{name} on #{loaders.map(&:to_s).join(",")}"
+                    "Aggregate: resolving deployment #{name} on #{loaders.map(&:to_s).join(',')}"
                 end
 
                 loaders.each do |l|
-                    begin
-                        # We assume that the sub-loaders are created with self
-                        # as root loader. They will therefore register
-                        # themselves on self
-                        return l.deployment_model_from_name(name)
-                    rescue DeploymentModelNotFound => e
-                        Loaders.debug "  not available on #{l}: #{e}"
-                    end
+                    # We assume that the sub-loaders are created with self
+                    # as root loader. They will therefore register
+                    # themselves on self
+                    return l.deployment_model_from_name(name)
+                rescue DeploymentModelNotFound => e
+                    Loaders.debug "  not available on #{l}: #{e}"
                 end
-                raise DeploymentModelNotFound, "there is no deployment named #{name} on #{self}"
+                raise DeploymentModelNotFound,
+                      "there is no deployment named #{name} on #{self}"
             end
 
             def to_s
-                "#<#{self.class.name}(#{object_id.to_s(16)}): #{loaders.map(&:to_s).join(",")}>"
+                "#<#{self.class.name}(#{object_id.to_s(16)}): #{loaders.map(&:to_s).join(',')}>"
             end
         end
     end

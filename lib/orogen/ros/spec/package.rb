@@ -22,7 +22,8 @@ module OroGen
                 def default_task_superclass
                     if @default_task_superclass.nil?
                         @default_task_superclass = loader.task_model_from_name "ROS::Node"
-                    else @default_task_superclass
+                    else
+                        @default_task_superclass
                     end
                 end
 
@@ -44,7 +45,7 @@ module OroGen
                 # Nodes are represented as instances of RosNode. See
                 # the documentation of that class for more details
                 # @return [Node]
-                def ros_node(name, options = Hash.new, &block)
+                def ros_node(name, options = {}, &block)
                     task = external_task_context(
                         name, class: Spec::Node, **options, &block
                     )
@@ -67,7 +68,8 @@ module OroGen
                     deployers[launcher.name] = launcher
                     launcher
                 rescue Exception => e
-                    raise e, "defining ROS launcher #{name} on #{self} failed: #{e.message}", e.backtrace
+                    raise e,
+                          "defining ROS launcher #{name} on #{self} failed: #{e.message}", e.backtrace
                 end
 
                 def using_ros_package(name)
@@ -75,10 +77,12 @@ module OroGen
                 end
 
                 def simple_deployment
-                    raise NotImplementedError, "cannot create simple deployments on #{self.class}"
+                    raise NotImplementedError,
+                          "cannot create simple deployments on #{self.class}"
                 end
 
-                def __eval__(deffile, deftext, verbose = (::OroGen.logger.level == ::Logger::DEBUG))
+                def __eval__(deffile, deftext,
+                    verbose = (::OroGen.logger.level == ::Logger::DEBUG))
                     if !deffile
                         @load_doc = false
                         instance_eval deftext
@@ -94,8 +98,12 @@ module OroGen
                         this_level = ::Kernel.caller.size
                         until_here = e.backtrace[-(this_level - 1)..-1] || []
                         subcalls = e.backtrace[0, e.backtrace.size - this_level - 1] || []
-                        subcalls.delete_if { |line| line =~ /eval|method_missing/ && line !~ /\.orogen/ }
-                        subcalls = subcalls.map { |line| line.gsub(/:in `(?:block in )?__eval__'/, "") }
+                        subcalls.delete_if do |line|
+                            line =~ /eval|method_missing/ && line !~ /\.orogen/
+                        end
+                        subcalls = subcalls.map do |line|
+                            line.gsub(/:in `(?:block in )?__eval__'/, "")
+                        end
                         ::Kernel.raise e, e.message, (subcalls + until_here)
                     end
                 end

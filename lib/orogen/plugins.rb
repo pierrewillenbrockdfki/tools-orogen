@@ -7,20 +7,16 @@ module OroGen
 
     def self.each_orogen_plugin_dir
         each_orogen_plugin_path do |p|
-            if File.directory?(p)
-                yield(p)
-            end
+            yield(p) if File.directory?(p)
         end
     end
 
-    def self.each_orogen_plugin_file(type)
+    def self.each_orogen_plugin_file(type, &block)
         each_orogen_plugin_path do |path|
             if File.file?(path)
                 yield(path)
             else
-                Dir.glob(File.join(path, type, "*.rb")).each do |file|
-                    yield(file)
-                end
+                Dir.glob(File.join(path, type, "*.rb")).each(&block)
             end
         end
     end
@@ -32,9 +28,7 @@ module OroGen
         end
 
         path = File.join(*path)
-        if File.extname(path) != ".rb"
-            path = "#{path}.rb"
-        end
+        path = "#{path}.rb" if File.extname(path) != ".rb"
 
         each_orogen_plugin_dir do |dir|
             path = File.join(dir, path)
@@ -44,7 +38,8 @@ module OroGen
                 return
             end
         end
-        raise ArgumentError, "cannot load plugin #{path}: not found in #{ENV['OROGEN_PLUGIN_PATH']}"
+        raise ArgumentError,
+              "cannot load plugin #{path}: not found in #{ENV['OROGEN_PLUGIN_PATH']}"
     ensure
         if original_load_path
             $LOAD_PATH.clear
@@ -84,9 +79,7 @@ module OroGen
             Utilrb::PkgConfig.new("#{typekit_name}-typekit-#{Gen::RTT_CPP.orocos_target}")
 
         tlb = typekit_pkg.type_registry
-        if tlb
-            registry.import(tlb)
-        end
+        registry.import(tlb) if tlb
 
         registry
     end

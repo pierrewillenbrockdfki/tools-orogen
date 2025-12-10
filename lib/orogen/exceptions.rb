@@ -26,6 +26,7 @@ module OroGen
     # create a port, property, ...), but it is exported by no typekit
     class NotExportedType < InvalidInterfaceType
         attr_reader :typekits
+
         def initialize(type, typekits)
             @typekits = typekits
             super(type)
@@ -35,6 +36,7 @@ module OroGen
     # Exception thrown when a type is needed but we can't find a typekit for it
     class NotTypekitType < RuntimeError
         attr_reader :type_name
+
         def initialize(type_name)
             @type_name = type_name
         end

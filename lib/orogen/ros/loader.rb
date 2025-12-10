@@ -3,8 +3,7 @@
 module OroGen
     module ROS
         class Loader < OroGen::Loaders::Base
-            attr_reader :search_path
-            attr_reader :packs
+            attr_reader :search_path, :packs
 
             # @return [String] the suffix of files that contain ROS package
             #   models
@@ -33,11 +32,11 @@ module OroGen
 
             def clear
                 super
-                @search_path = Array.new
-                @packs = Array.new
-                @package_paths = Hash.new
-                @orogen_to_ros_mappings = Hash.new
-                @ros_to_orogen_mappings = Hash.new
+                @search_path = []
+                @packs = []
+                @package_paths = {}
+                @orogen_to_ros_mappings = {}
+                @ros_to_orogen_mappings = {}
             end
 
             def to_s
@@ -75,9 +74,7 @@ module OroGen
             def find_project_file_from_name(name)
                 search_path.each do |dir|
                     file = File.join(dir, "#{name}#{spec_file_suffix}")
-                    if File.file?(file)
-                        return file
-                    end
+                    return file if File.file?(file)
                 end
                 nil
             end
@@ -86,7 +83,7 @@ module OroGen
                 !!find_project_file_from_name(name)
             end
 
-            def has_typekit?(name)
+            def has_typekit?(_name)
                 false
             end
 
@@ -120,14 +117,16 @@ module OroGen
             def project_model_text_from_name(name)
                 path = find_project_file_from_name(name)
                 unless path
-                    raise OroGen::ProjectNotFound, "could not find an oroGen model for the ROS package #{name} in #{search_path.inspect}"
+                    raise OroGen::ProjectNotFound,
+                          "could not find an oroGen model for the ROS package #{name} in #{search_path.inspect}"
                 end
 
                 [File.read(path), path]
             end
 
             def typekit_model_text_from_name(name)
-                raise OroGen::TypekitNotFound, "ROS packages define no typekits (was looking for #{name})"
+                raise OroGen::TypekitNotFound,
+                      "ROS packages define no typekits (was looking for #{name})"
             end
 
             # Manually registers the path to a package
@@ -172,14 +171,17 @@ module OroGen
                     path
                 elsif File.file?(alternative_path)
                     alternative_path
-                else raise ArgumentError, "package #{package_name} has no launch file #{launchfile_name} (looked for #{path} and #{alternative_path})"
+                else
+                    raise ArgumentError,
+                          "package #{package_name} has no launch file #{launchfile_name} (looked for #{path} and #{alternative_path})"
                 end
             end
 
             def map_message_type_to_orogen(message_type)
                 orogen_types = find_all_types_for(message_type)
                 if orogen_types.empty?
-                    raise ArgumentError, "there are not oroGen equivalent for #{message_type}"
+                    raise ArgumentError,
+                          "there are not oroGen equivalent for #{message_type}"
                 end
 
                 orogen_types.first

@@ -3,13 +3,13 @@
 begin
     require "typelib"
 rescue LoadError
-    STDERR.puts "Cannot require 'typelib'"
-    STDERR.puts "If you are using Rock, the 'typelib' package should have been installed automatically."
-    STDERR.puts "First, make sure that you have loaded autoproj's env.sh script before continuing"
-    STDERR.puts "Second, typelib should be installed in tools/typelib from the root of your Rock installation."
-    STDERR.puts "If it is not the case, report this to the rock developers. To workaround, run"
-    STDERR.puts "  amake typelib"
-    STDERR.puts "and try again."
+    warn "Cannot require 'typelib'"
+    warn "If you are using Rock, the 'typelib' package should have been installed automatically."
+    warn "First, make sure that you have loaded autoproj's env.sh script before continuing"
+    warn "Second, typelib should be installed in tools/typelib from the root of your Rock installation."
+    warn "If it is not the case, report this to the rock developers. To workaround, run"
+    warn "  amake typelib"
+    warn "and try again."
     exit 1
 end
 
@@ -21,10 +21,12 @@ module OroGen
 
     module Spec
     end
+
     module Gen
         module RTT_CPP
         end
     end
+
     # Code-generation support for the different supported RTT transports
     module TypekitMarshallers
         extend Logger::Hierarchy
@@ -52,6 +54,4 @@ require "orogen/plugins"
 require "orogen/loaders"
 require "orogen/spec"
 
-unless ENV["OROGEN_DISABLE_PLUGINS"] == "1"
-    OroGen.load_orogen_plugins
-end
+OroGen.load_orogen_plugins unless ENV["OROGEN_DISABLE_PLUGINS"] == "1"

@@ -9,20 +9,18 @@ module OroGen
                 # This class represents the node description
                 # which can be extracted from a launch file
                 class NodeDescription
-                    attr_reader :package
-                    attr_reader :type
-                    attr_reader :name
+                    attr_reader :package, :type, :name
 
                     # Define optional attributes -- based on the ROS Spec
-                    @optional_attr = { :respawn => false, :output => nil }
+                    @optional_attr = { respawn: false, output: nil }
                     @optional_attr.each do |attr_name, _|
                         attr_reader attr_name
                     end
 
                     # Optional attributes in the ROS launcher specification
                     # @return [Hash] Hash of optional attributed along with the default value
-                    def self.optional_attr
-                        @optional_attr
+                    class << self
+                        attr_reader :optional_attr
                     end
 
                     # Initialize the node description
@@ -85,7 +83,7 @@ module OroGen
 
                 # [String] Name of the launcher
                 attr_reader :name
-                alias :nodes :task_activities
+                alias nodes task_activities
 
                 # [Boolean] Flag if the launch file content should be loaded
                 # to extract node definitions
@@ -113,10 +111,10 @@ module OroGen
 
                 # Loads the launch file if not already loaded
                 def load_launch_file
-                    unless loaded_launch_file?
-                        @loaded_launch_file = true
-                        parse(launch_file)
-                    end
+                    return if loaded_launch_file?
+
+                    @loaded_launch_file = true
+                    parse(launch_file)
                 end
 
                 # Test whether the launch file has been automatically loaded
@@ -135,7 +133,8 @@ module OroGen
                             node(d.name, "#{d.package}::#{d.type}")
                         end
                     else
-                        raise ArgumentError, "Launcher: could not find launch file: '#{path}' in #{Dir.pwd}"
+                        raise ArgumentError,
+                              "Launcher: could not find launch file: '#{path}' in #{Dir.pwd}"
                     end
                     File.absolute_path(path)
                 end

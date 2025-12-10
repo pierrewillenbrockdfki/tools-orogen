@@ -4,6 +4,7 @@ require "orogen/test"
 
 describe OroGen::Spec::Operation do
     attr_reader :project, :loader, :task_model, :operation
+
     before do
         @loader = OroGen::Loaders::Files.new
         OroGen::Loaders::RTT.setup_loader(loader)
@@ -23,6 +24,7 @@ describe OroGen::Spec::Operation do
 
     describe "#to_h" do
         attr_reader :task, :op
+
         before do
             @task = OroGen::Spec::TaskContext.new(project)
             @op = task.operation("op")
@@ -62,17 +64,20 @@ describe OroGen::Spec::Operation do
         it "marshals its arguments" do
             op.argument("arg", "/double")
             double_t = task.project.find_type("/double")
-            assert_equal [Hash[name: "arg", type: double_t.to_h, doc: ""]], op.to_h[:arguments]
+            assert_equal [Hash[name: "arg", type: double_t.to_h, doc: ""]],
+                         op.to_h[:arguments]
         end
         it "marshals its arguments documentation" do
             op.argument("arg", "/double", "arg documentation")
             double_t = task.project.find_type("/double")
-            assert_equal [Hash[name: "arg", type: double_t.to_h, doc: "arg documentation"]], op.to_h[:arguments]
+            assert_equal [Hash[name: "arg", type: double_t.to_h, doc: "arg documentation"]],
+                         op.to_h[:arguments]
         end
     end
 
     describe "#find_interface_type" do
         attr_reader :op, :project
+
         before do
             task = create_dummy_project.task_context "Task"
             @project = project
@@ -80,7 +85,7 @@ describe OroGen::Spec::Operation do
         end
 
         it "should strip the qualifiers to resolve the type" do
-            type, _ = op.find_interface_type("double const&")
+            type, = op.find_interface_type("double const&")
             assert_equal type, op.task.project.find_type("/double")
         end
         it "should replace typelib typenames by C++ typenames in the signature" do

@@ -3,12 +3,11 @@
 module OroGen
     module Loaders
         class Files < Base
-            attr_reader :available_projects
-            attr_reader :available_typekits
+            attr_reader :available_projects, :available_typekits
 
             def initialize(root_loader = self)
-                @available_projects = Hash.new
-                @available_typekits = Hash.new
+                @available_projects = {}
+                @available_typekits = {}
                 super
             end
 
@@ -25,9 +24,7 @@ module OroGen
 
             def project_model_text_from_name(name)
                 path = available_projects[name]
-                unless path
-                    raise ProjectNotFound, "no project called #{name} on #{self}"
-                end
+                raise ProjectNotFound, "no project called #{name} on #{self}" unless path
 
                 [File.read(path), path]
             end
@@ -66,11 +63,12 @@ module OroGen
                         return m
                     end
                 end
-                raise DeploymentModelNotFound, "there is no deployment called #{name} on #{self}"
+                raise DeploymentModelNotFound,
+                      "there is no deployment called #{name} on #{self}"
             end
 
             def to_s
-                "#<OroGen::Loaders::Files(#{object_id.to_s(16)}) projects=#{available_projects.keys.sort.join(",")} typekits=#{available_typekits.keys.sort.join(",")}>"
+                "#<OroGen::Loaders::Files(#{object_id.to_s(16)}) projects=#{available_projects.keys.sort.join(',')} typekits=#{available_typekits.keys.sort.join(',')}>"
             end
 
             def each_project
@@ -78,11 +76,11 @@ module OroGen
 
                 available_projects.each_key do |project_name|
                     project = begin
-                                  root_loader.project_model_from_name(project_name)
-                              rescue Exception => e
-                                  OroGen.warn "could not load #{project_name}: #{e.message}"
-                                  next
-                              end
+                        root_loader.project_model_from_name(project_name)
+                    rescue Exception => e
+                        OroGen.warn "could not load #{project_name}: #{e.message}"
+                        next
+                    end
 
                     yield(project)
                 end
@@ -91,18 +89,14 @@ module OroGen
 
             def find_task_library_from_task_model_name(name)
                 each_project do |project|
-                    if project.find_task_context(name)
-                        return project.name
-                    end
+                    return project.name if project.find_task_context(name)
                 end
                 nil
             end
 
             def find_project_from_deployment_name(name)
                 each_project do |project|
-                    if project.find_deployment_by_name(name)
-                        return project.name
-                    end
+                    return project.name if project.find_deployment_by_name(name)
                 end
                 nil
             end
@@ -115,7 +109,7 @@ module OroGen
                 available_typekits.each_key(&block)
             end
 
-            def each_available_deployment_name(&block)
+            def each_available_deployment_name
                 return enum_for(__method__) unless block_given?
 
                 each_project do |project|

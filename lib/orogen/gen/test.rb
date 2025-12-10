@@ -29,16 +29,14 @@ module OroGen
                 include OroGen::Gen
                 include OroGen::Gen::RTT_CPP
 
-                attr_reader :working_directory
+                attr_reader :working_directory, :subdir
 
                 def prefix_directory
                     File.join(path_to_wc_root, "prefix", *subdir)
                 end
 
-                attr_reader :subdir
-
                 def setup
-                    @subdir = Array.new
+                    @subdir = []
                     @old_pkg_config = ENV["PKG_CONFIG_PATH"].dup if ENV["PKG_CONFIG_PATH"]
                     super if defined? super
                 end
@@ -53,20 +51,21 @@ module OroGen
 
                 def create_wc(*subdir)
                     required_wc = File.join(path_to_test, "wc", *subdir)
-                    if working_directory != required_wc
-                        @working_directory = required_wc
-                        FileUtils.mkdir_p working_directory
-                        @subdir = subdir
-                    end
+                    return unless working_directory != required_wc
+
+                    @working_directory = required_wc
+                    FileUtils.mkdir_p working_directory
+                    @subdir = subdir
                 end
 
                 def clear_wc
-                    if ENV["TEST_KEEP_WC"] != "1" && ENV["TEST_DONT_CLEAN"] != "1"
-                        if File.directory?(path_to_wc_root)
-                            FileUtils.rm_rf path_to_wc_root
-                            @working_directory = nil
-                        end
+                    unless ENV["TEST_KEEP_WC"] != "1" && ENV["TEST_DONT_CLEAN"] != "1"
+                        return
                     end
+                    return unless File.directory?(path_to_wc_root)
+
+                    FileUtils.rm_rf path_to_wc_root
+                    @working_directory = nil
                 end
 
                 def copy_in_wc(file, destination = nil)
@@ -75,7 +74,8 @@ module OroGen
                         FileUtils.mkdir_p destination
                     end
 
-                    FileUtils.cp File.expand_path(file, path_to_test), (destination || working_directory)
+                    FileUtils.cp File.expand_path(file, path_to_test),
+                                 (destination || working_directory)
                 end
 
                 def in_wc(*subdir, &block)
@@ -89,7 +89,8 @@ module OroGen
                 def install
                     in_wc do
                         Dir.chdir("build") do
-                            assert(call_make("install"), "failed to install, see #{logfile} for more details")
+                            assert(call_make("install"),
+                                   "failed to install, see #{logfile} for more details")
                         end
                     end
                 end
@@ -98,10 +99,12 @@ module OroGen
                     old_pkgconfig = ENV["PKG_CONFIG_PATH"]
                     in_wc do
                         Dir.chdir("build") do
-                            assert(call_make("install"), "failed to install, see #{logfile} for more details")
+                            assert(call_make("install"),
+                                   "failed to install, see #{logfile} for more details")
                         end
 
-                        ENV["PKG_CONFIG_PATH"] += ":" + File.join(prefix_directory, "lib", "pkgconfig")
+                        ENV["PKG_CONFIG_PATH"] += ":" + File.join(prefix_directory,
+                                                                  "lib", "pkgconfig")
                         Dir.chdir(prefix_directory, &block)
                     end
                 ensure
@@ -116,7 +119,8 @@ module OroGen
                     in_wc(*subdir) do
                         if project
                             unless project.deffile
-                                project.deffile = File.join(working_directory, "#{project.name}.orogen")
+                                project.deffile = File.join(working_directory,
+                                                            "#{project.name}.orogen")
                             end
                             project.generate
                         end
@@ -125,8 +129,12 @@ module OroGen
 
                         FileUtils.mkdir("build") unless File.directory?("build")
                         Dir.chdir("build") do
-                            assert(system("cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=#{prefix_directory} ..", redirect_to_logfile), "failed to configure, see #{logfile} for more details")
-                            assert(call_make, "failed to build, see #{logfile} for more details")
+                            assert(
+                                system("cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=#{prefix_directory} ..",
+                                       redirect_to_logfile), "failed to configure, see #{logfile} for more details"
+                            )
+                            assert(call_make,
+                                   "failed to build, see #{logfile} for more details")
                         end
                     end
                 end
@@ -158,19 +166,22 @@ module OroGen
                         end
                         cmdline = ["typegen"]
                         unless transports.empty?
-                            cmdline << "--transports=#{transports.join(",")}"
+                            cmdline << "--transports=#{transports.join(',')}"
                         end
                         cmdline << "-o" << "typekit_output" << name << "types"
 
-                        assert(system(*cmdline, redirect_to_logfile), "typegen failed, log file in #{logfile}")
+                        assert(system(*cmdline, redirect_to_logfile),
+                               "typegen failed, log file in #{logfile}")
                     end
 
                     compile_wc(nil, "typekit_output")
                 end
 
-                def build_test_project(dirname, transports = [], test_bin = nil, wc_dirname = nil)
+                def build_test_project(dirname, transports = [], test_bin = nil,
+                    wc_dirname = nil)
                     source             = File.join(path_to_data, dirname)
-                    @working_directory = File.join(path_to_test, "wc", wc_dirname || dirname)
+                    @working_directory = File.join(path_to_test, "wc",
+                                                   wc_dirname || dirname)
                     @subdir = [dirname]
 
                     if ENV["TEST_DONT_CLEAN"] != "1" || !File.directory?(working_directory)
@@ -196,7 +207,8 @@ module OroGen
 
                     if test_bin
                         in_prefix do
-                            assert(system(test_bin, redirect_to_logfile), "failed to run test program #{test_bin}, see #{logfile} for output")
+                            assert(system(test_bin, redirect_to_logfile),
+                                   "failed to run test program #{test_bin}, see #{logfile} for output")
                         end
                     end
                     project
@@ -211,7 +223,8 @@ module OroGen
                     end
 
                     in_prefix do
-                        assert(system(test_bin, redirect_to_logfile), "failed to run test program #{test_bin}, see #{logfile} for output")
+                        assert(system(test_bin, redirect_to_logfile),
+                               "failed to run test program #{test_bin}, see #{logfile} for output")
                     end
                 end
             end

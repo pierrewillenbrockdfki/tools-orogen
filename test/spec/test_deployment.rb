@@ -4,6 +4,7 @@ require "orogen/test"
 
 describe OroGen::Spec::Deployment do
     attr_reader :project, :task_model, :deployment
+
     before do
         @loader = OroGen::Loaders::Files.new
         OroGen::Loaders::RTT.setup_loader(@loader)
@@ -15,7 +16,7 @@ describe OroGen::Spec::Deployment do
 
     describe "#activity_ordered_tasks" do
         it "is well-behaved if there are no tasks in the deployment" do
-            assert_equal Array.new, deployment.activity_ordered_tasks
+            assert_equal [], deployment.activity_ordered_tasks
         end
         it "places masters before the slaves" do
             slave = deployment.task("slave", task_model)
@@ -99,6 +100,7 @@ end
 
 describe OroGen::Spec::TaskDeployment do
     attr_reader :project, :task_model, :deployment
+
     before do
         loader = OroGen::Loaders::Files.new
         OroGen::Loaders::RTT.setup_loader(loader)
@@ -136,35 +138,46 @@ describe OroGen::Spec::ConnPolicy do
         end
 
         it "should assign hash values to variables" do
-            policy = conn_policy.from_hash :type => :buffer, :lock_policy => :locked, :size => 10
+            policy = conn_policy.from_hash type: :buffer, lock_policy: :locked,
+                                           size: 10
             assert_equal(:buffer, policy.type)
             assert_equal(:locked, policy.lock_policy)
             assert_equal(false, policy.pull)
             assert_equal(10, policy.size)
         end
         it "should set sane defaults if given an empty hash" do
-            policy = conn_policy.from_hash(Hash.new)
+            policy = conn_policy.from_hash({})
             assert_equal(:data, policy.type)
             assert_equal(:lock_free, policy.lock_policy)
             assert_equal(false, policy.pull)
             assert_equal(0, policy.size)
         end
         it "should raise ArgumentError if the connection type is unknown" do
-            assert_raises(ArgumentError) { conn_policy.from_hash :type => :unknown }
+            assert_raises(ArgumentError) { conn_policy.from_hash type: :unknown }
         end
         it "should raise ArgumentError if the lock_policy is unknown" do
-            assert_raises(ArgumentError) { conn_policy.from_hash :lock_policy => :unknown }
+            assert_raises(ArgumentError) do
+                conn_policy.from_hash lock_policy: :unknown
+            end
         end
         it "should raise ArgumentError if size is given for a data connection" do
-            assert_raises(ArgumentError) { conn_policy.from_hash :type => :data, :size => 10 }
-            assert_raises(ArgumentError) { conn_policy.from_hash :type => :data, :size => 0 }
+            assert_raises(ArgumentError) do
+                conn_policy.from_hash type: :data, size: 10
+            end
+            assert_raises(ArgumentError) do
+                conn_policy.from_hash type: :data, size: 0
+            end
         end
         it "should raise ArgumentError if size is not given for a buffer connection" do
-            assert_raises(ArgumentError) { conn_policy.from_hash :type => :buffer }
+            assert_raises(ArgumentError) { conn_policy.from_hash type: :buffer }
         end
         it "should raise ArgumentError if a non-positive size is given for a buffer connection" do
-            assert_raises(ArgumentError) { conn_policy.from_hash :type => :buffer, :size => 0 }
-            assert_raises(ArgumentError) { conn_policy.from_hash :type => :buffer, :size => -1 }
+            assert_raises(ArgumentError) do
+                conn_policy.from_hash type: :buffer, size: 0
+            end
+            assert_raises(ArgumentError) do
+                conn_policy.from_hash type: :buffer, size: -1
+            end
         end
     end
 end

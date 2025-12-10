@@ -13,7 +13,7 @@ require "find"
 
 class Module
     def enumerate_inherited_set(each_name, attribute_name = each_name) # :nodoc:
-        class_eval <<-EOD, __FILE__, __LINE__
+        class_eval <<-EOD, __FILE__, __LINE__ + 1
         def find_#{attribute_name}(name)
             each_#{each_name} do |n|
                 return n if n.name == name
@@ -35,7 +35,7 @@ class Module
     end
 
     def enumerate_inherited_map(each_name, attribute_name = each_name) # :nodoc:
-        class_eval <<-EOD, __FILE__, __LINE__
+        class_eval <<-EOD, __FILE__, __LINE__ + 1
         attr_reader :#{attribute_name}
         def all_#{attribute_name}; each_#{each_name}.to_a end
         def self_#{attribute_name}; @#{attribute_name}.values end
@@ -77,13 +77,15 @@ module OroGen
         #  * all other cases are reported as internal errors
         file_pattern = /#{Regexp.quote(File.basename(filename))}/
         if e.backtrace.first =~ file_pattern
-            if e.kind_of?(NoMethodError) || e.kind_of?(NameError)
-                e.message =~ /undefined (?:local variable or )?method `([^']+)'/
-                method_name = $1
-                raise Generation::ConfigError, "unknown statement '#{method_name}'", e.backtrace
-            else
+            unless e.kind_of?(NoMethodError) || e.kind_of?(NameError)
                 raise Generation::ConfigError, e.message, e.backtrace
             end
+
+            e.message =~ /undefined (?:local variable or )?method `([^']+)'/
+            method_name = ::Regexp.last_match(1)
+            raise Generation::ConfigError, "unknown statement '#{method_name}'",
+                  e.backtrace
+
         elsif (e.backtrace[1] =~ file_pattern) || e.kind_of?(ArgumentError)
             raise Generation::ConfigError, e.message, e.backtrace
         end
@@ -103,9 +105,9 @@ module OroGen
     end
 
     def self.validate_toplevel_type(type)
-        if type < Typelib::ArrayType
-            raise Generation::ConfigError, "array types can be used only in a structure"
-        end
+        return unless type < Typelib::ArrayType
+
+        raise Generation::ConfigError, "array types can be used only in a structure"
     end
 
     # Returns the unqualified version of +type_name+
