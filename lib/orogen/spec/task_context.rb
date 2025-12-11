@@ -1346,7 +1346,7 @@ module OroGen
             # @param [Float,nil] timeout in seconds. If non-nil, the task will be
             #   called after this many seconds have passed without being triggered
             def port_driven(*names, timeout: nil)
-                default_activity "triggered", timeout: timeout
+                default_activity "triggered", timeout
                 names = names.map(&:to_s)
                 relevant_ports =
                     if names.empty? then all_input_ports

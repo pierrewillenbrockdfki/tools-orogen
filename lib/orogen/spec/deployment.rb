@@ -393,7 +393,7 @@ module OroGen
             # @param [Float,nil] timeout timeout in seconds or nil for no timeout.
             #   If this timeout is given, the task will be called after this many
             #   seconds have passed without an explicit trigger.
-            def triggered(timeout: nil)
+            def triggered(timeout=nil)
                 activity_type "Triggered", "RTT::Activity", "rtt/Activity.hpp"
                 activity_setup do
                     activity_new = <<~EOD
