@@ -52,7 +52,7 @@ module OroGen
                     old.shift
                 end
                 until new.empty?
-                    result << "#{" " * indent}namespace #{new.first} {\n"
+                    result << "#{' ' * indent}namespace #{new.first} {\n"
                     indent += indent_size
                     new.shift
                 end
@@ -61,10 +61,7 @@ module OroGen
             end
 
             class BuildDependency
-                attr_reader :var_name
-                attr_reader :pkg_name
-
-                attr_reader :context
+                attr_reader :var_name, :pkg_name, :context
 
                 def initialize(var_name, pkg_name)
                     @var_name = var_name.gsub(/[^\w]/, "_")
@@ -96,7 +93,7 @@ module OroGen
 
             def self.cmake_pkgconfig_require(depspec, context = "core")
                 cmake_txt = "set(DEPS_CFLAGS_OTHER \"\")\n"
-                cmake_txt += depspec.inject([]) do |result, s|
+                cmake_txt += depspec.each_with_object([]) do |s, result|
                     result << "orogen_pkg_check_modules(#{s.var_name} REQUIRED #{s.pkg_name})"
                     if s.in_context?(context, "include")
                         result << "include_directories(${#{s.var_name}_INCLUDE_DIRS})"
@@ -105,7 +102,6 @@ module OroGen
                     if s.in_context?(context, "link")
                         result << "link_directories(${#{s.var_name}_LIBRARY_DIRS})"
                     end
-                    result
                 end.join("\n") + "\n"
                 cmake_txt += "list(REMOVE_DUPLICATES DEPS_CFLAGS_OTHER)\n"
                 cmake_txt += "add_definitions(${DEPS_CFLAGS_OTHER})\n"
@@ -135,8 +131,7 @@ module OroGen
             end
 
             class << self
-                attr_accessor :job_server
-                attr_accessor :parallel_level
+                attr_accessor :job_server, :parallel_level
             end
 
             # @api private

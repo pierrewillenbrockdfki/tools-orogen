@@ -15,7 +15,8 @@ module OroGen
         def self.shared_library_suffix
             if macos? then "dylib"
             elsif windows? then "dll"
-            else "so"
+            else
+                "so"
             end
         end
 
@@ -89,7 +90,7 @@ module OroGen
 
             def find_pkgconfig(name, minimal: true)
                 Utilrb::PkgConfig.get(name, minimal: minimal)
-            rescue Utilrb::PkgConfig::NotFound # rubocop:disable Lint/HandleExceptions
+            rescue Utilrb::PkgConfig::NotFound
             end
 
             def has_pkgconfig?(name)
@@ -278,9 +279,9 @@ module OroGen
             end
 
             def find_deployment_binfile(deployment_name)
-                if find_project_from_deployment_name(deployment_name)
-                    available_deployments[deployment_name].binfile
-                end
+                return unless find_project_from_deployment_name(deployment_name)
+
+                available_deployments[deployment_name].binfile
             end
 
             def load_available_deployed_tasks
@@ -365,7 +366,8 @@ module OroGen
             def typekit_for(type, exported = true)
                 typename = if type.respond_to?(:name)
                                type.name
-                           else type
+                           else
+                               type
                            end
 
                 if (typekits = typekits_by_type_name[typename])
@@ -458,15 +460,13 @@ module OroGen
             # system
             #
             # @yieldparam [AvailableDeployedTask]
-            def each_available_deployed_task
+            def each_available_deployed_task(&block)
                 return enum_for(__method__) unless block_given?
 
                 load_available_deployed_tasks if available_deployed_tasks.empty?
 
                 available_deployed_tasks.each_value do |deployments|
-                    deployments.each do |task|
-                        yield(task)
-                    end
+                    deployments.each(&block)
                 end
             end
 

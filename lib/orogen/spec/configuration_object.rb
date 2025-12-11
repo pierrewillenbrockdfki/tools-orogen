@@ -113,13 +113,13 @@ module OroGen
                     name: name,
                     type: type.to_h,
                     dynamic: !!dynamic?,
-                    doc: (doc || "")]
+                    doc: doc || ""]
                 if (value = default_value)
-                    if value.respond_to?(:to_simple_value)
-                        result[:default] = value.to_simple_value
-                    else
-                        result[:default] = value
-                    end
+                    result[:default] = if value.respond_to?(:to_simple_value)
+                                           value.to_simple_value
+                                       else
+                                           value
+                                       end
                 end
                 result
             end

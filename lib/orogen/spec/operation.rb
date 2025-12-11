@@ -104,9 +104,7 @@ module OroGen
             # a normalized version for +name+. It does accept const and
             # reference qualifiers in +name+.
             def find_interface_type(qualified_type)
-                if qualified_type.respond_to?(:name)
-                    qualified_type = qualified_type.name
-                end
+                qualified_type = qualified_type.name if qualified_type.respond_to?(:name)
                 type_name = OroGen.unqualified_cxx_type(qualified_type)
                 typelib_type_name = ::Typelib::GCCXMLLoader.cxx_to_typelib(type_name)
                 type = task.project.find_interface_type(typelib_type_name)
@@ -157,7 +155,8 @@ module OroGen
                     if type
                         type, qualified_type = find_interface_type(type)
                         [type, qualified_type, doc]
-                    else [nil, "void", doc]
+                    else
+                        [nil, "void", doc]
                     end
 
                 self
@@ -179,7 +178,7 @@ module OroGen
                         pp.breakable
                         pp.text "Returns: #{return_type[2]}"
                     end
-                    arguments.map do |name, type, doc, qualified_type|
+                    arguments.map do |name, _type, doc, _qualified_type|
                         pp.breakable
                         pp.text "#{name}: #{doc}"
                     end
@@ -207,11 +206,12 @@ module OroGen
             #
             # @return [Hash]
             def to_h
-                result = Hash[name: name, doc: (doc || "")]
+                result = Hash[name: name, doc: doc || ""]
                 if has_return_value?
-                    result[:returns] = Hash[type: return_type[0].to_h, doc: return_type[2]]
+                    result[:returns] =
+                        Hash[type: return_type[0].to_h, doc: return_type[2]]
                 end
-                result[:arguments] = arguments.map do |name, type, doc, qualified_type|
+                result[:arguments] = arguments.map do |name, type, doc, _qualified_type|
                     Hash[name: name, type: type.to_h, doc: doc]
                 end
                 result

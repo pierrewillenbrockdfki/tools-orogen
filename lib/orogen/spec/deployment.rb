@@ -30,6 +30,7 @@ module OroGen
 
         class GenericObjectDeployment
             attr_reader :activity, :interface_object
+
             def initialize(activity, interface_object)
                 @activity = activity
                 @interface_object = interface_object
@@ -39,6 +40,7 @@ module OroGen
                 interface_object.name
             end
         end
+
         class PortDeployment     < GenericObjectDeployment; end
         class PropertyDeployment < GenericObjectDeployment; end
         class OperationDeployment < GenericObjectDeployment; end
@@ -75,17 +77,18 @@ module OroGen
 
                 policy = ConnPolicy.new
                 type = hash.delete(:type) || :data
-                if type == :data || type == :buffer
-                    policy.type = type
-                else
+                unless %i[data buffer].include?(type)
                     raise ArgumentError, "'type' can only be either :data or :buffer"
                 end
 
+                policy.type = type
+
                 lock_policy = hash.delete(:lock_policy) || :lock_free
-                if lock_policy == :lock_free || lock_policy == :locked
+                if %i[lock_free locked].include?(lock_policy)
                     policy.lock_policy = lock_policy
                 else
-                    raise ArgumentError, "'lock_policy' can only be either :lock_free or :locked"
+                    raise ArgumentError,
+                          "'lock_policy' can only be either :lock_free or :locked"
                 end
 
                 policy.pull = !!hash.delete(:pull)
@@ -98,7 +101,8 @@ module OroGen
                 policy.size = Integer(size || 0)
 
                 if !hash.empty?
-                    raise ArgumentError, "unknown policy specification options #{hash.keys.join(", ")}"
+                    raise ArgumentError,
+                          "unknown policy specification options #{hash.keys.join(', ')}"
                 elsif type == :buffer && policy.size <= 0
                     raise ArgumentError, "you have to specify a buffer size"
                 end
@@ -111,7 +115,7 @@ module OroGen
                 str << "#{varname}.type      = RTT::ConnPolicy::#{type.to_s.upcase};\n"
                 str << "#{varname}.lock_policy = RTT::ConnPolicy::#{lock_policy.to_s.upcase};\n"
                 str << "#{varname}.init      = false;\n"
-                str << "#{varname}.pull      = #{pull ? "true" : "false"};\n"
+                str << "#{varname}.pull      = #{pull ? 'true' : 'false'};\n"
                 str << "#{varname}.size      = #{size};\n"
                 str
             end
@@ -124,6 +128,7 @@ module OroGen
             attr_accessor :name
             # The TaskContext model used to define this task
             attr_reader :task_model
+
             # Backward compatibility only. Use #task_model instead.
             def context
                 task_model
@@ -209,7 +214,7 @@ module OroGen
                 @priority = :lowest
                 @max_overruns = -1
                 @master = nil
-                @slaves = Array.new
+                @slaves = []
 
                 @explicit_activity =
                     if task_model.default_activity
@@ -217,9 +222,9 @@ module OroGen
                         task_model.required_activity?
                     end
 
-                { :properties => PropertyDeployment,
-                  :ports => PortDeployment,
-                  :operations => OperationDeployment }.each do |collection_name, klass|
+                { properties: PropertyDeployment,
+                  ports: PortDeployment,
+                  operations: OperationDeployment }.each do |collection_name, klass|
                     deployed_objects = task_model.send("all_#{collection_name}").map do |obj|
                         klass.new(self, obj)
                     end
@@ -262,9 +267,11 @@ module OroGen
             dsl_attribute :activity_type do |*type|
                 if @explicit_activity
                     if task_model.required_activity?
-                        raise ArgumentError, "the #{task_model.name} task context requires #{@activity_type.name} as an activity, you cannot change it"
+                        raise ArgumentError,
+                              "the #{task_model.name} task context requires #{@activity_type.name} as an activity, you cannot change it"
                     else
-                        raise ArgumentError, "you already explicitely set the activity of #{name}"
+                        raise ArgumentError,
+                              "you already explicitely set the activity of #{name}"
                     end
                 end
                 @explicit_activity = true
@@ -302,13 +309,14 @@ module OroGen
             # Makes this task's activity driven by a file descriptor. The underlying
             # task context must be a subclass of FileDescriptorActivity::Provider
             def fd_driven
-                activity_type "FileDescriptorActivity", "RTT::extras::FileDescriptorActivity", "rtt/extras/FileDescriptorActivity.hpp"
+                activity_type "FileDescriptorActivity",
+                              "RTT::extras::FileDescriptorActivity", "rtt/extras/FileDescriptorActivity.hpp"
                 activity_xml do
-                    <<-EOD
-<struct name="#{name}" type="FileDescriptorActivity">
-    <simple name="Priority" type="short"><value>#{rtt_priority}</value></simple>
-    <simple name="Scheduler" type="string"><value>#{rtt_scheduler}</value></simple>
-</struct>
+                    <<~EOD
+                        <struct name="#{name}" type="FileDescriptorActivity">
+                            <simple name="Priority" type="short"><value>#{rtt_priority}</value></simple>
+                            <simple name="Scheduler" type="string"><value>#{rtt_scheduler}</value></simple>
+                        </struct>
                     EOD
                 end
                 self
@@ -318,13 +326,14 @@ module OroGen
             # underlying task context must be a subclass of
             # IRQActivity::Provider
             def irq_driven
-                activity_type "IRQActivity", "RTT::extras::IRQActivity", "rtt/extras/IRQActivity.hpp"
+                activity_type "IRQActivity", "RTT::extras::IRQActivity",
+                              "rtt/extras/IRQActivity.hpp"
                 activity_xml do
-                    <<-EOD
-<struct name="#{name}" type="IRQActivity">
-    <simple name="Priority" type="short"><value>#{rtt_priority}</value></simple>
-    <simple name="Scheduler" type="string"><value>#{rtt_scheduler}</value></simple>
-</struct>
+                    <<~EOD
+                        <struct name="#{name}" type="IRQActivity">
+                            <simple name="Priority" type="short"><value>#{rtt_priority}</value></simple>
+                            <simple name="Scheduler" type="string"><value>#{rtt_scheduler}</value></simple>
+                        </struct>
                     EOD
                 end
                 self
@@ -341,35 +350,36 @@ module OroGen
                     activity_type.name != "Periodic"
             end
 
-            # call-seq:
-            #   periodic(period_in_seconds) -> self
+            # Declare that this deployed task's is periodic
             #
-            # Sets this task as being periodic. Call #period to return the
+            # Sets this task as being periodic. Call {#period} to return the
             # current task's period (or nil if the task is not periodic), and
             # one of the other triggering methods if you want a different
             # activity type.
+            #
+            # @param [Float] value period in seconds
             def periodic(value)
                 activity_type "Periodic", "RTT::Activity", "rtt/Activity.hpp"
                 activity_setup do
-                    <<-EOD
-#{activity_type.class_name}* activity_#{name} = new #{activity_type.class_name}(
-    #{rtt_scheduler},
-    #{rtt_priority},
-    #{period},
-    task_#{name}->engine(),
-    "#{name}");
-RTT::os::Thread* thread_#{name} =
-    dynamic_cast<RTT::os::Thread*>(activity_#{name}->thread());
-thread_#{name}->setMaxOverrun(#{max_overruns});
+                    <<~EOD
+                        #{activity_type.class_name}* activity_#{name} = new #{activity_type.class_name}(
+                            #{rtt_scheduler},
+                            #{rtt_priority},
+                            #{period},
+                            task_#{name}->engine(),
+                            "#{name}");
+                        RTT::os::Thread* thread_#{name} =
+                            dynamic_cast<RTT::os::Thread*>(activity_#{name}->thread());
+                        thread_#{name}->setMaxOverrun(#{max_overruns});
                     EOD
                 end
                 activity_xml do
-                    <<-EOD
-<struct name="#{name}" type="Activity">
-    <simple name="Period" type="double"><value>#{period}</value></simple>
-    <simple name="Priority" type="short"><value>#{rtt_priority}</value></simple>
-    <simple name="Scheduler" type="string"><value>#{rtt_scheduler}</value></simple>
-</struct>
+                    <<~EOD
+                        <struct name="#{name}" type="Activity">
+                            <simple name="Period" type="double"><value>#{period}</value></simple>
+                            <simple name="Priority" type="short"><value>#{rtt_priority}</value></simple>
+                            <simple name="Scheduler" type="string"><value>#{rtt_scheduler}</value></simple>
+                        </struct>
                     EOD
                 end
 
@@ -379,25 +389,40 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
 
             # Marks this task as being explicitely triggered (the default). To
             # make it periodic, call #period with the required period
-            def triggered
+            #
+            # @param [Float,nil] timeout timeout in seconds or nil for no timeout.
+            #   If this timeout is given, the task will be called after this many
+            #   seconds have passed without an explicit trigger.
+            def triggered(timeout: nil)
                 activity_type "Triggered", "RTT::Activity", "rtt/Activity.hpp"
                 activity_setup do
-                    <<-EOD
-#{activity_type.class_name}* activity_#{name} = new #{activity_type.class_name}(
-    #{rtt_scheduler},
-    #{rtt_priority},
-    0,
-    task_#{name}->engine(),
-    "#{name}");
+                    activity_new = <<~EOD
+                        #{activity_type.class_name}* activity_#{name} =
+                            new #{activity_type.class_name}(
+                                #{rtt_scheduler},
+                                #{rtt_priority},
+                                0,
+                                task_#{name}->engine(),
+                                "#{name}"
+                            );
                     EOD
+
+                    if timeout
+                        activity_timeout = <<~EOD
+                            activity_#{name}->setAperiodicTriggerTimeout(
+                                #{((timeout || 0) * 1e9).round}
+                            );
+                        EOD
+                    end
+                    "#{activity_new}#{activity_timeout}"
                 end
                 activity_xml do
-                    <<-EOD
-<struct name="#{name}" type="Activity">
-    <simple name="Period" type="double"><value>0</value></simple>
-    <simple name="Priority" type="short"><value>#{rtt_priority}</value></simple>
-    <simple name="Scheduler" type="string"><value>#{rtt_scheduler}</value></simple>
-</struct>
+                    <<~EOD
+                        <struct name="#{name}" type="Activity">
+                            <simple name="Period" type="double"><value>0</value></simple>
+                            <simple name="Priority" type="short"><value>#{rtt_priority}</value></simple>
+                            <simple name="Scheduler" type="string"><value>#{rtt_scheduler}</value></simple>
+                        </struct>
                     EOD
                 end
                 @period = 0
@@ -409,15 +434,16 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
             # step() on them, or -- in the case of port-driven tasks -- by the
             # task context that wrote on their read ports.
             def sequential
-                activity_type "Sequential", "RTT::extras::SequentialActivity", "rtt/extras/SequentialActivity.hpp"
+                activity_type "Sequential", "RTT::extras::SequentialActivity",
+                              "rtt/extras/SequentialActivity.hpp"
                 activity_setup do
-                    <<-EOD
-#{activity_type.class_name}* activity_#{name} = new #{activity_type.class_name}(task_#{name}->engine());
+                    <<~EOD
+                        #{activity_type.class_name}* activity_#{name} = new #{activity_type.class_name}(task_#{name}->engine());
                     EOD
                 end
                 activity_xml do
-                    <<-EOD
-<struct name="#{name}" type="SequentialActivity" />
+                    <<~EOD
+                        <struct name="#{name}" type="SequentialActivity" />
                     EOD
                 end
 
@@ -425,10 +451,11 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
             end
 
             def slave
-                activity_type "SlaveActivity", "RTT::extras::SlaveActivity", "rtt/extras/SlaveActivity.hpp"
+                activity_type "SlaveActivity", "RTT::extras::SlaveActivity",
+                              "rtt/extras/SlaveActivity.hpp"
                 activity_setup do
-                    <<-EOD
-#{activity_type.class_name}* activity_#{name} = new #{activity_type.class_name}(activity_#{master.name},task_#{name}->engine());
+                    <<~EOD
+                        #{activity_type.class_name}* activity_#{name} = new #{activity_type.class_name}(activity_#{master.name},task_#{name}->engine());
                     EOD
                 end
                 activity_xml do
@@ -481,11 +508,9 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
             # task is periodic. Default: 5. Use #disable_overruns_control
             # to disable this check.
             dsl_attribute(:max_overruns) do |value|
-                if !period
-                    raise "max_overruns is only valid in periodic tasks"
-                else
-                    @period = Integer(value)
-                end
+                raise "max_overruns is only valid in periodic tasks" unless period
+
+                @period = Integer(value)
             end
 
             # True if this task should be deployed using a realtime scheduler,
@@ -529,23 +554,25 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
                 name = m.to_s
                 if name =~ /=$/
                     setter = true
-                    name = $`
+                    name = ::Regexp.last_match.pre_match
                 end
 
-                { :properties => PropertyDeployment,
-                  :ports => PortDeployment,
-                  :operations => OperationDeployment }.each do |collection_name, klass|
+                { properties: PropertyDeployment,
+                  ports: PortDeployment,
+                  operations: OperationDeployment }.each do |collection_name, _klass|
                     if (obj = send(collection_name).find { |el| el.name == name.to_s })
                         if setter
                             if args.size != 1
-                                raise ArgumentError, "wrong number of arguments for #{name}=: expected 1 got #{args.size}"
+                                raise ArgumentError,
+                                      "wrong number of arguments for #{name}=: expected 1 got #{args.size}"
                             end
 
                             obj.set args[0]
                             return args[0]
                         else
                             unless args.empty?
-                                raise ArgumentError, "wrong number of arguments for #{name}: expected 1 got #{args.size}"
+                                raise ArgumentError,
+                                      "wrong number of arguments for #{name}: expected 1 got #{args.size}"
                             end
 
                             return obj
@@ -598,16 +625,16 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
                 @name = name
 
                 @install         = true
-                @task_activities = Array.new
-                @file_reporters  = Hash.new
-                @loggers         = Hash.new
-                @connections     = Array.new
-                @tcp_reporters   = Hash.new
+                @task_activities = []
+                @file_reporters  = {}
+                @loggers         = {}
+                @connections     = []
+                @tcp_reporters   = {}
                 @peers           = Set.new
                 @corba_enabled   = nil
                 @browse          = nil
                 @loglevel        = nil
-                @transports      = Array.new
+                @transports      = []
                 @manually_loaded_types = Set.new
                 @lock_timeout_no_period = nil
                 @lock_timeout_period_factor = nil
@@ -625,12 +652,12 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
             end
 
             KNOWN_LOG_LEVELS = {
-                :info => "Info",
-                :debug => "Debug"
+                info: "Info",
+                debug: "Debug"
             }
 
             def to_s
-                "#<#{self.class} name=#{name} tasks=#{task_activities.map(&:to_s).join(", ")}>"
+                "#<#{self.class} name=#{name} tasks=#{task_activities.map(&:to_s).join(', ')}>"
             end
 
             def inspect
@@ -675,10 +702,10 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
             # @yieldparam [Symbol] key the initializer name as registered with
             #   {.register_global_initializer}. The registration needed by the actual
             #   code generation needs to be done with each separate code generator
-            def each_needed_global_initializer
+            def each_needed_global_initializer(&block)
                 return enum_for(__method__) unless block_given?
 
-                @global_initializers.each { |i| yield(i) }
+                @global_initializers.each(&block)
                 unique = @global_initializers.dup
                 task_activities.each do |t|
                     t.task_model.each_needed_global_initializer do |key|
@@ -730,7 +757,8 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
             dsl_attribute :loglevel do |level|
                 orocos_level = KNOWN_LOG_LEVELS[level.to_sym]
                 unless orocos_level
-                    raise ArgumentError, "unknown log level '#{level}'. Must be one of #{KNOWN_LOG_LEVELS.keys.join(", ")}"
+                    raise ArgumentError,
+                          "unknown log level '#{level}'. Must be one of #{KNOWN_LOG_LEVELS.keys.join(', ')}"
                 end
 
                 @loglevel = orocos_level
@@ -768,13 +796,15 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
             # to configure the task further (for instance specifying the
             # activity). See TaskDeployment documentation for available options.
             def task(name, klass)
-                if klass.respond_to?(:to_str)
-                    task_context = project.task_model_from_name(klass)
-                else task_context = klass
-                end
+                task_context = if klass.respond_to?(:to_str)
+                                   project.task_model_from_name(klass)
+                               else
+                                   klass
+                               end
 
                 if find_task_by_name(name)
-                    raise ArgumentError, "there is already a task #{name} on the deployment #{self.name}"
+                    raise ArgumentError,
+                          "there is already a task #{name} on the deployment #{self.name}"
                 end
 
                 deployment = TaskDeployment.new(name, task_context)
@@ -803,7 +833,8 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
             def corba_enabled?
                 if @corba_enabled.nil?
                     transports.include?("corba")
-                else @corba_enabled
+                else
+                    @corba_enabled
                 end
             end
 
@@ -824,18 +855,16 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
             end
 
             # handels theActivity creation order to be sure that all activities are created in the right order
-            def activity_ordered_tasks(ordered = Array.new)
-                oldsize = ordered.size()
+            def activity_ordered_tasks(ordered = [])
+                oldsize = ordered.size
                 (task_activities - ordered).each do |task|
-                    if !task.master || ordered.include?(task.master)
-                        ordered << task
-                    end
+                    ordered << task if !task.master || ordered.include?(task.master)
                 end
                 if ordered.size == task_activities.size
                     ordered
-                elsif oldsize == ordered.size()
+                elsif oldsize == ordered.size
                     activities = task_activities.map do |task|
-                        "\n  #{task.name} (master: #{task.master ? task.master.name : "none"})"
+                        "\n  #{task.name} (master: #{task.master ? task.master.name : 'none'})"
                     end
                     raise ArgumentError,
                           "I cannot find an order in which to create the deployed tasks "\
@@ -871,7 +900,7 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
             attr_reader :connections
 
             # Connects the two given ports or tasks
-            def connect(from, to, policy = Hash.new)
+            def connect(from, to, policy = {})
                 add_peers from.activity, to.activity
 
                 if from.kind_of?(Port)
@@ -944,15 +973,15 @@ thread_#{name}->setMaxOverrun(#{max_overruns});
                     end
                 end
 
-                unless connections.empty?
-                    pp.breakable unless task_activities.empty?
-                    pp.text "Connections"
-                    pp.nest(2) do
-                        pp.breakable
-                        pp.seplist(connections) do |conn|
-                            from, to, policy = *conn
-                            pp.text "#{from.activity.name} => #{to.activity.name} [#{policy.inspect}]"
-                        end
+                return if connections.empty?
+
+                pp.breakable unless task_activities.empty?
+                pp.text "Connections"
+                pp.nest(2) do
+                    pp.breakable
+                    pp.seplist(connections) do |conn|
+                        from, to, policy = *conn
+                        pp.text "#{from.activity.name} => #{to.activity.name} [#{policy.inspect}]"
                     end
                 end
             end

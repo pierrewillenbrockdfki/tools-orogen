@@ -18,6 +18,7 @@ module OroGen
                 end
 
                 attr_reader :typekit
+
                 def initialize(typekit)
                     @typekit = typekit
 
@@ -29,8 +30,7 @@ module OroGen
                     Typelib::ArrayType.extend(TypekitMarshallers::TypeInfo::ArrayType)
                 end
 
-                def dependencies
-                end
+                def dependencies; end
 
                 def separate_cmake?
                     false
@@ -45,8 +45,11 @@ module OroGen
                                             .partition { |t| t < Typelib::ArrayType }
 
                     code_snippets = []
-                    code_snippets += plain.find_all { |t| !t.contains_opaques? }.map do |type|
-                        c = Gen::RTT_CPP.render_template "typekit", "type_info", "Info.cpp", binding
+                    code_snippets += plain.find_all do |t|
+                        !t.contains_opaques?
+                    end.map do |type|
+                        c = Gen::RTT_CPP.render_template "typekit", "type_info",
+                                                         "Info.cpp", binding
                         [type, c]
                     end
 
@@ -55,25 +58,31 @@ module OroGen
                     arrays_of = arrays.each_with_object({}) do |t, h|
                         h[t.deference] = t
                     end
-                    code_snippets += arrays_of.values.find_all { |t| !t.contains_opaques? }.map do |type|
-                        c = Gen::RTT_CPP.render_template "typekit", "type_info", "ArrayInfo.cpp", binding
+                    code_snippets += arrays_of.values.find_all do |t|
+                        !t.contains_opaques?
+                    end.map do |type|
+                        c = Gen::RTT_CPP.render_template "typekit", "type_info",
+                                                         "ArrayInfo.cpp", binding
                         [type.deference.name_as_word + "[]", c]
                     end
 
                     code_snippets += typesets.registered_types.find_all(&:contains_opaques?).map do |type|
                         needs_copy =
                             if type.opaque? then typekit.opaque_specification(type).needs_copy?
-                            else true
+                            else
+                                true
                             end
 
                         intermediate_type = typekit.intermediate_type_for(type)
-                        c = Gen::RTT_CPP.render_template "typekit", "type_info", "OpaqueInfo.cpp", binding
+                        c = Gen::RTT_CPP.render_template "typekit", "type_info",
+                                                         "OpaqueInfo.cpp", binding
                         [type, c]
                     end
 
                     impl += typekit.render_typeinfo_snippets(code_snippets, "type_info")
 
-                    code = Gen::RTT_CPP.render_template "typekit", "type_info", "TypeInfo.hpp", binding
+                    code = Gen::RTT_CPP.render_template "typekit", "type_info",
+                                                        "TypeInfo.hpp", binding
                     typekit.save_automatic("type_info",
                                            "Registration.hpp", code)
 

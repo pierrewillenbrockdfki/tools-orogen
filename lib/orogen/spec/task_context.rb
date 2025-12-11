@@ -3,19 +3,18 @@
 module OroGen
     module Spec
         ACTIVITY_TYPES = {
-            :fd_driven => "FileDescriptorActivity",
-            :irq_driven => "IRQActivity",
-            :slave => "SlaveActivity",
-            :periodic => "PeriodicActivity",
-            :triggered => "NonPeriodicActivity",
-            :sequential => "SequentialActivity"
+            fd_driven: "FileDescriptorActivity",
+            irq_driven: "IRQActivity",
+            slave: "SlaveActivity",
+            periodic: "PeriodicActivity",
+            triggered: "NonPeriodicActivity",
+            sequential: "SequentialActivity"
         }
 
         # Base class for all task model extensions. It provides a few useful
         # common methods
         class TaskModelExtension
-            attr_reader :name
-            attr_reader :task
+            attr_reader :name, :task
 
             def initialize(name = nil)
                 @name = name
@@ -117,7 +116,8 @@ module OroGen
             # if there is already one.
             def register_extension(obj)
                 if (old = find_extension(obj.name, false)) && old != obj
-                    raise ArgumentError, "there is already an extension called #{obj.name}: #{old}"
+                    raise ArgumentError,
+                          "there is already an extension called #{obj.name}: #{old}"
                 else
                     extensions << obj
                     obj.registered_on(self)
@@ -158,7 +158,9 @@ module OroGen
             def extension(name, with_subclasses = true)
                 if (ext = find_extension(name, with_subclasses))
                     ext
-                else raise ArgumentError, "no extension registered under the name '#{name}'"
+                else
+                    raise ArgumentError,
+                          "no extension registered under the name '#{name}'"
                 end
             end
 
@@ -232,10 +234,10 @@ module OroGen
             # Enumerates the global initializers this task required
             #
             # @see needs_global_initializer
-            def each_needed_global_initializer
+            def each_needed_global_initializer(&block)
                 return enum_for(__method__) unless block_given?
 
-                @global_initializers.each { |i| yield(i) }
+                @global_initializers.each(&block)
                 unique = @global_initializers.dup
 
                 superclass&.each_needed_global_initializer do |i|
@@ -249,7 +251,8 @@ module OroGen
             # scope of the enclosing Project object -- i.e. either defined in
             # it, or imported by a Project#using_task_library call.
             def subclasses(task_context)
-                OroGen.warn_deprecated __method__, "in #{project.name}: use task_context \"Name\", subclasses: \"Parent\" do .. end instead"
+                OroGen.warn_deprecated __method__,
+                                       "in #{project.name}: use task_context \"Name\", subclasses: \"Parent\" do .. end instead"
 
                 if task_context.respond_to?(:to_str)
                     if @superclass && (@superclass != project.default_task_superclass)
@@ -351,7 +354,8 @@ module OroGen
             # See also #required_activity
             dsl_attribute :default_activity do |type, *args|
                 if required_activity? && @default_activity
-                    raise ArgumentError, "the #{default_activity[0]} activity is required, you cannot change it"
+                    raise ArgumentError,
+                          "the #{default_activity[0]} activity is required, you cannot change it"
                 end
 
                 type = type.to_sym
@@ -364,6 +368,8 @@ module OroGen
 
             # Declares that this task should be deployed using a default
             # periodic activity, with the given period
+            #
+            # @param [Float] period the period in seconds
             def periodic(period)
                 default_activity :periodic, period
             end
@@ -437,8 +443,7 @@ module OroGen
                 instance_eval(&block) if block_given?
             end
 
-            def initialize_copy(from)
-            end
+            def initialize_copy(from); end
 
             # Set of typekits that define this task's interfaces
             #
@@ -500,7 +505,7 @@ module OroGen
                 pp.breakable
                 triggers = all_event_ports
                 unless triggers.empty?
-                    pp.text "Triggered on input: #{triggers.map(&:name).join(", ")}"
+                    pp.text "Triggered on input: #{triggers.map(&:name).join(', ')}"
                     pp.breakable
                 end
                 if needs_configuration?
@@ -537,16 +542,17 @@ module OroGen
                       find_property(name) ||
                       find_attribute(name)
 
-                if obj
-                    raise ArgumentError, "#{name} is already used in the interface of #{self.name}, as a #{obj.class}"
-                end
+                return unless obj
+
+                raise ArgumentError,
+                      "#{name} is already used in the interface of #{self.name}, as a #{obj.class}"
             end
 
             # Add in +self+ the ports of +other_model+ that don't exist.
             #
             # Raises ArgumentError if +other_model+ has ports whose name is used
             # in +self+, but for which the definition is different.
-            def merge_ports_from(other_model, name_mappings = Hash.new)
+            def merge_ports_from(other_model, name_mappings = {})
                 other_model.each_port do |p|
                     if (target_name = name_mappings[p.name])
                         p = p.dup
@@ -556,9 +562,11 @@ module OroGen
                     if has_port?(p.name)
                         self_port = find_port(p.name)
                         if self_port.class != p.class
-                            raise ArgumentError, "cannot merge as #{self_port.name} is a #{self_port.class} in #{self} and a #{p.class} in #{other_model}"
+                            raise ArgumentError,
+                                  "cannot merge as #{self_port.name} is a #{self_port.class} in #{self} and a #{p.class} in #{other_model}"
                         elsif self_port.type != p.type
-                            raise ArgumentError, "cannot merge as #{self_port.name} is of type #{self_port.type} in #{self} and of type #{p.type} in #{other_model}"
+                            raise ArgumentError,
+                                  "cannot merge as #{self_port.name} is of type #{self_port.type} in #{self} and of type #{p.type} in #{other_model}"
                         end
                     elsif p.kind_of?(OutputPort)
                         @output_ports[p.name] = p
@@ -597,9 +605,11 @@ module OroGen
             # state to be either PreOperational or Stopped.
             def needs_configuration
                 if superclass&.fixed_initial_state? && !superclass.needs_configuration?
-                    raise ArgumentError, "cannot change the start state of this task context: the superclass #{superclass.name} does not allow it"
+                    raise ArgumentError,
+                          "cannot change the start state of this task context: the superclass #{superclass.name} does not allow it"
                 elsif fixed_initial_state? && !needs_configuration?
-                    raise ArgumentError, "cannot change the start state of this task context: #fixed_initial_state has been specified for it"
+                    raise ArgumentError,
+                          "cannot change the start state of this task context: #fixed_initial_state has been specified for it"
                 end
 
                 @needs_configuration = true
@@ -675,7 +685,8 @@ module OroGen
             def make_property_dynamic(name)
                 prop = find_property(name)
                 unless prop
-                    raise ArgumentError, "The requested property " + name + " could not be found"
+                    raise ArgumentError,
+                          "The requested property " + name + " could not be found"
                 end
 
                 property = @properties[name] = prop.dup
@@ -735,25 +746,22 @@ module OroGen
                     raise ArgumentError, "unknown state type #{type.inspect}"
                 end
 
-                if !extended_state_support? && (type != :toplevel)
-                    extended_state_support
-                end
+                extended_state_support if !extended_state_support? && (type != :toplevel)
 
                 if (kind = state_kind(name.to_s))
                     if kind != type
-                        raise ArgumentError, "state #{name} is already defined as #{kind}, cannot overload into #{type}"
+                        raise ArgumentError,
+                              "state #{name} is already defined as #{kind}, cannot overload into #{type}"
                     end
                 else
                     @states << [name, type]
-                    if type != :toplevel
-                        @states = @states.sort_by { |n, _| n }
-                    end
+                    @states = @states.sort_by { |n, _| n } if type != :toplevel
                 end
             end
 
             # Returns what kind of state +name+ is
             def state_kind(name) # :nodoc:
-                if (s = each_state.find { |n, t| n == name })
+                if (s = each_state.find { |n, _t| n == name })
                     s[1]
                 end
             end
@@ -787,7 +795,7 @@ module OroGen
             # See also #each_runtime_state, #each_exception_state, #each_error_state and #each_state
 
             STATE_TYPES.each do |type|
-                class_eval <<-EOD
+                class_eval <<-EOD, __FILE__, __LINE__ + 1
                 def each_#{type}_state
                     if block_given?
                         each_state do |name, type|
@@ -810,18 +818,14 @@ module OroGen
             def each_state(with_superclass: true, &block)
                 return enum_for(__method__) unless block
 
-                if superclass && with_superclass
-                    superclass.each_state(&block)
-                end
+                superclass.each_state(&block) if superclass && with_superclass
                 @states.each(&block)
             end
 
             # @deprecated use {#toplevel_states} to define toplevel states on root
             #   models, and {#each_state} to enumerate the states
             def states(*state_names) # :nodoc:
-                if state_names.empty?
-                    return @states
-                end
+                return @states if state_names.empty?
 
                 toplevel_states(*state_names)
             end
@@ -922,9 +926,7 @@ module OroGen
                 return enum_for(:each_dynamic_input_port, only_self) unless block_given?
 
                 each_dynamic_port do |port|
-                    if port.kind_of?(InputPort)
-                        yield(port)
-                    end
+                    yield(port) if port.kind_of?(InputPort)
                 end
             end
 
@@ -938,9 +940,7 @@ module OroGen
                 return enum_for(:each_dynamic_output_port, only_self) unless block_given?
 
                 each_dynamic_port do |port|
-                    if port.kind_of?(OutputPort)
-                        yield(port)
-                    end
+                    yield(port) if port.kind_of?(OutputPort)
                 end
             end
 
@@ -1172,11 +1172,10 @@ module OroGen
                     # HACK: this is needed for the codegen part. Will have to go
                     # HACK: away once we migrate the codegen part to the
                     # HACK: loading infrastructure
-                    if project.typekit(true).respond_to?(:shared_ptr)
-                        project.typekit(true).shared_ptr(name)
-                        project.resolve_type(full_name)
-                    else raise
-                    end
+                    raise unless project.typekit(true).respond_to?(:shared_ptr)
+
+                    project.typekit(true).shared_ptr(name)
+                    project.resolve_type(full_name)
                 end
             end
 
@@ -1201,11 +1200,10 @@ module OroGen
                     # HACK: this is needed for the codegen part. Will have to go
                     # HACK: away once we migrate the codegen part to the
                     # HACK: loading infrastructure
-                    if project.typekit(true).respond_to?(:ro_ptr)
-                        project.typekit(true).ro_ptr(name)
-                        project.resolve_type(full_name)
-                    else raise
-                    end
+                    raise unless project.typekit(true).respond_to?(:ro_ptr)
+
+                    project.typekit(true).ro_ptr(name)
+                    project.resolve_type(full_name)
                 end
             end
 
@@ -1232,9 +1230,7 @@ module OroGen
             # See also #find_input_port and #find_output_port
             def find_port(name, type = nil)
                 p = find_input_port(name) || find_output_port(name)
-                if !type || (p && p.type == type)
-                    p
-                end
+                p if !type || (p && p.type == type)
             end
 
             # Returns true if this task interface has a port named 'name'. If a
@@ -1303,7 +1299,8 @@ module OroGen
             #
             # If +type+ is nil, the type is ignored in the matching.
             def has_dynamic_port?(name, type)
-                has_dynamic_input_port?(name, type) || has_dynamic_output_port?(name, type)
+                has_dynamic_input_port?(name,
+                                        type) || has_dynamic_output_port?(name, type)
             end
 
             # Returns the set of dynamic input port definitions that match the
@@ -1345,8 +1342,11 @@ module OroGen
             # Declares that this task context is designed to be woken up when
             # new data is available on one of the given ports (or all already
             # defined ports if no names are given).
-            def port_driven(*names)
-                default_activity "triggered"
+            #
+            # @param [Float,nil] timeout in seconds. If non-nil, the task will be
+            #   called after this many seconds have passed without being triggered
+            def port_driven(*names, timeout: nil)
+                default_activity "triggered", timeout: timeout
                 names = names.map(&:to_s)
                 relevant_ports =
                     if names.empty? then all_input_ports
@@ -1354,11 +1354,13 @@ module OroGen
                         names.map do |n|
                             obj = find_input_port(n)
                             unless obj
-                                if has_output_port?(n)
-                                    raise ArgumentError, "#{n} is an output port of #{name}, only input ports can be used in #port_driven"
-                                else
+                                unless has_output_port?(n)
                                     raise ArgumentError, "#{n} is not a port of #{name}"
                                 end
+
+                                raise ArgumentError,
+                                      "#{n} is an output port of #{name}, only input ports can be used in #port_driven"
+
                             end
                             obj
                         end
@@ -1406,7 +1408,7 @@ module OroGen
 
             # Generate a graphviz fragment to represent this task
             def to_dot
-                html_escape = lambda { |s| s.gsub(/</, "&lt;").gsub(/>/, "&gt;") }
+                html_escape = ->(s) { s.gsub(/</, "&lt;").gsub(/>/, "&gt;") }
                 html_table  = lambda do |title, lines|
                     label = "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">\n"
                     label << "  <TR><TD>#{title}</TD></TR>\n"
@@ -1426,21 +1428,23 @@ module OroGen
                 properties = all_properties
                              .map { |p| "#{p.name} [#{html_escape[p.type_name]}]" }
                 unless properties.empty?
-                    label << "  <TR><TD>#{html_table["Properties", properties]}</TD></TR>"
+                    label << "  <TR><TD>#{html_table['Properties', properties]}</TD></TR>"
                 end
 
                 input_ports = all_ports
                               .find_all { |p| p.kind_of?(InputPort) }
                               .map { |p| "#{p.name} [#{html_escape[p.type_name]}]" }
                 unless input_ports.empty?
-                    label << "  <TR><TD>#{html_table["Input ports", input_ports]}</TD></TR>"
+                    label << "  <TR><TD>#{html_table['Input ports',
+                                                     input_ports]}</TD></TR>"
                 end
 
                 output_ports = all_ports
                                .find_all { |p| p.kind_of?(OutputPort) }
                                .map { |p| "#{p.name} [#{html_escape[p.type_name]}]" }
                 unless output_ports.empty?
-                    label << "  <TR><TD>#{html_table["Output ports", output_ports]}</TD></TR>"
+                    label << "  <TR><TD>#{html_table['Output ports',
+                                                     output_ports]}</TD></TR>"
                 end
 
                 label << "</TABLE>"
@@ -1499,14 +1503,14 @@ module OroGen
 
             # Enumerate all the types that are used on this component's
             # interface
-            def each_interface_type
+            def each_interface_type(&block)
                 return enum_for(__method__) unless block_given?
 
                 seen = Set.new
                 (all_properties + all_attributes + all_operations + all_ports + all_dynamic_ports)
                     .each do |obj|
                         unless seen.include?(obj)
-                            obj.each_interface_type { |t| yield(t) }
+                            obj.each_interface_type(&block)
                             seen << obj
                         end
                     end

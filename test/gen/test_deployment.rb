@@ -39,7 +39,8 @@ class TC_GenerationDeployment < Minitest::Test
         # Start the resulting deployment
         in_prefix do
             reader, writer = IO.pipe
-            child_pid = Process.spawn({ "FD_DRIVEN_TEST_FILE" => STDIN.fileno.to_s }, "./bin/fd", writer => :close, :in => reader, :close_others => false)
+            child_pid = Process.spawn({ "FD_DRIVEN_TEST_FILE" => STDIN.fileno.to_s },
+                                      "./bin/fd", writer => :close, :in => reader, :close_others => false)
 
             reader.close
             sleep 0.5
@@ -61,7 +62,8 @@ class TC_GenerationDeployment < Minitest::Test
         # Generate and build all the modules that are needed ...
         build_test_project("modules/typekit_opaque", transports)
         install
-        ENV["PKG_CONFIG_PATH"] = "#{File.join(prefix_directory, "lib", "pkgconfig")}:#{ENV['PKG_CONFIG_PATH']}"
+        ENV["PKG_CONFIG_PATH"] =
+            "#{File.join(prefix_directory, 'lib', 'pkgconfig')}:#{ENV['PKG_CONFIG_PATH']}"
 
         build_test_project("modules/cross_producer", transports)
         install
@@ -69,11 +71,14 @@ class TC_GenerationDeployment < Minitest::Test
         build_test_project("modules/cross_consumer", transports)
         install
 
-        ENV["PKG_CONFIG_PATH"] = "#{File.join(prefix_directory, "lib", "pkgconfig")}:#{producer_pkgconfig}:#{ENV['PKG_CONFIG_PATH']}"
+        ENV["PKG_CONFIG_PATH"] =
+            "#{File.join(prefix_directory, 'lib',
+                         'pkgconfig')}:#{producer_pkgconfig}:#{ENV['PKG_CONFIG_PATH']}"
 
         # Start by loading the project specfication and check some properties
         # on it. Then, do the generation, build and test
-        Project.load(File.join(path_to_data, "modules", "cross_deployment", "deployment.orogen"))
+        Project.load(File.join(path_to_data, "modules", "cross_deployment",
+                               "deployment.orogen"))
 
         build_test_project("modules/cross_deployment", transports)
         install

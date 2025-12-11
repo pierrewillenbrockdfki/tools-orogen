@@ -92,6 +92,7 @@ describe OroGen::Loaders::Base do
 
     describe "#typekit_model_from_name" do
         attr_reader :typekit
+
         before do
             tlb = <<~TYPELIB_XML
                 <?xml version="1.0"?>
@@ -153,6 +154,7 @@ describe OroGen::Loaders::Base do
 
     describe "#register_typekit_model" do
         attr_reader :typekit, :loader
+
         before do
             @typekit = OroGen::Spec::Typekit.new(nil, "test")
             @loader = OroGen::Loaders::Base.new
@@ -231,6 +233,7 @@ describe OroGen::Loaders::Base do
 
     describe "#imported_typekits_for" do
         attr_reader :registry, :typekit, :definition_typekit
+
         before do
             @registry = Typelib::CXXRegistry.new
             @typekit = OroGen::Spec::Typekit.new(loader, "typekit", registry, [])

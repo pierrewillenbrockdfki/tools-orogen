@@ -30,13 +30,13 @@ class TC_GenerationBuild < Minitest::Test
         FileUtils.rm_rf lib_prefix
         FileUtils.cp_r File.join(path_to_data, "build_regen_library"), lib_prefix
         File.open(File.join(lib_prefix, "build_regen_library.pc"), "w") do |io|
-            io.puts <<-PKGFILE
-prefix=#{lib_prefix}
+            io.puts <<~PKGFILE
+                prefix=#{lib_prefix}
 
-Name: build_regen_library
-Description: fake library
-Version: 0
-Cflags: -I${prefix}/include -I${prefix}/include/project
+                Name: build_regen_library
+                Description: fake library
+                Version: 0
+                Cflags: -I${prefix}/include -I${prefix}/include/project
             PKGFILE
         end
         ENV["PKG_CONFIG_PATH"] = "#{lib_prefix}:#{ENV['PKG_CONFIG_PATH']}"
@@ -46,15 +46,15 @@ Cflags: -I${prefix}/include -I${prefix}/include/project
         in_wc do
             # Add a new type to test.h
             File.open("test.h", "a") do |io|
-                io.puts <<-NEWDEF
-#ifndef BUILD_REGEN_TYPEKIT_TEST_H_NEW_TYPE
-#define BUILD_REGEN_TYPEKIT_TEST_H_NEW_TYPE
-namespace Test {
-    struct NewType {
-        int field;
-    };
-}
-#endif
+                io.puts <<~NEWDEF
+                    #ifndef BUILD_REGEN_TYPEKIT_TEST_H_NEW_TYPE
+                    #define BUILD_REGEN_TYPEKIT_TEST_H_NEW_TYPE
+                    namespace Test {
+                        struct NewType {
+                            int field;
+                        };
+                    }
+                    #endif
                 NEWDEF
             end
 
@@ -74,11 +74,11 @@ namespace Test {
 
         Dir.chdir(lib_prefix) do
             File.open("include/regen_lib.h", "a") do |io|
-                io.puts <<-NEWDEF
-#ifndef BUILD_REGEN_LIBRARY_REGEN_LIB_H_NEW_TYPE
-#define BUILD_REGEN_LIBRARY_REGEN_LIB_H_NEW_TYPE
-struct RegenLibNewType { int field; };
-#endif
+                io.puts <<~NEWDEF
+                    #ifndef BUILD_REGEN_LIBRARY_REGEN_LIB_H_NEW_TYPE
+                    #define BUILD_REGEN_LIBRARY_REGEN_LIB_H_NEW_TYPE
+                    struct RegenLibNewType { int field; };
+                    #endif
                 NEWDEF
             end
         end

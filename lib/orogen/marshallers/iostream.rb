@@ -2,27 +2,27 @@
 
 module Typelib
     class Type
-        def self.to_stream(typekit, result, indent)
-            STDERR.puts "to_ostream not implemented for #{name}"
+        def self.to_stream(_typekit, result, _indent)
+            warn "to_ostream not implemented for #{name}"
             result
         end
     end
 
     class ContainerType
-        def self.to_stream(typekit, result, indent)
+        def self.to_stream(_typekit, result, indent)
             element_type = deference.name
             element_type = registry.build(element_type)
 
             result << indent << "io << \"[ \";\n"
 
-            allocate_index do |element_idx|
-                result << <<-EOT
-#{indent}bool first_field = true;
-#{indent}for(#{cxx_name}::const_iterator it = value.begin(); it != value.end(); ++it)
-#{indent}{
-#{indent}    if (!first_field)
-#{indent}         io << ", ";
-#{indent}    first_field = false;
+            allocate_index do |_element_idx|
+                result << <<~EOT
+                    #{indent}bool first_field = true;
+                    #{indent}for(#{cxx_name}::const_iterator it = value.begin(); it != value.end(); ++it)
+                    #{indent}{
+                    #{indent}    if (!first_field)
+                    #{indent}         io << ", ";
+                    #{indent}    first_field = false;
                 EOT
 
                 if element_type.inlines_code?
@@ -47,14 +47,12 @@ module Typelib
     end
 
     class CompoundType
-        def self.to_stream(typekit, result, indent)
+        def self.to_stream(_typekit, result, indent)
             result << indent << "io << \"{ \";\n"
 
             first_field = true
             each_field do |field_name, field_type|
-                unless first_field
-                    result << "#{indent}  io << \", \";\n"
-                end
+                result << "#{indent}  io << \", \";\n" unless first_field
 
                 first_field = false
                 result << "#{indent}  io << basename << \".#{field_name} = \";\n"
@@ -69,20 +67,21 @@ module Typelib
             result << indent << "io << \" }\";\n"
         end
     end
+
     class ArrayType
-        def self.to_stream(typekit, result, indent)
+        def self.to_stream(_typekit, result, indent)
             element_type = registry.build(deference.name)
 
             result << indent << "io << \"[ \";\n"
 
             allocate_index do |i|
-                result << <<-EOT
-#{indent}bool first_field = true;
-#{indent}for(int #{i} = 0; #{i} < length; ++#{i})
-#{indent}{
-#{indent}    if (!first_field)
-#{indent}         io << ", ";
-#{indent}    first_field = false;
+                result << <<~EOT
+                    #{indent}bool first_field = true;
+                    #{indent}for(int #{i} = 0; #{i} < length; ++#{i})
+                    #{indent}{
+                    #{indent}    if (!first_field)
+                    #{indent}         io << ", ";
+                    #{indent}    first_field = false;
                 EOT
 
                 if element_type.inlines_code?

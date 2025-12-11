@@ -23,9 +23,7 @@ require "orogen"
 if ENV["TEST_ENABLE_PRY"] != "0"
     begin
         require "pry"
-        if ENV["TEST_DEBUG"] == "1"
-            require "pry-rescue/minitest"
-        end
+        require "pry-rescue/minitest" if ENV["TEST_DEBUG"] == "1"
     rescue Exception
         OroGen.warn "debugging is disabled because the 'pry' gem cannot be loaded"
     end

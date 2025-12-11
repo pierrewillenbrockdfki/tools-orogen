@@ -4,6 +4,7 @@ require "orogen/gen/test"
 
 class TC_GenerationTasks < Minitest::Test
     attr_reader :task, :project
+
     def setup
         @project = OroGen::Gen::RTT_CPP::Project.new
         @project.import_types_from "std"
@@ -63,8 +64,10 @@ class TC_GenerationTasks < Minitest::Test
     # Orogen should refuse to create a task context which has the same name than
     # one namespace of the type registry (that would not compile)
     def test_task_name_should_not_clash_with_namespace_name
-        project.deffile = File.join(path_to_data, "modules", "typekit_simple", "simple.orogen")
-        project.typekit(true).load File.join(path_to_data, "modules", "typekit_simple", "simple.h")
+        project.deffile = File.join(path_to_data, "modules", "typekit_simple",
+                                    "simple.orogen")
+        project.typekit(true).load File.join(path_to_data, "modules", "typekit_simple",
+                                             "simple.h")
         assert_raises(ArgumentError) { project.task_context("Test") {} }
     end
 
@@ -74,7 +77,7 @@ class TC_GenerationTasks < Minitest::Test
     end
 
     def test_generation_of_properties
-        %w{/double /std/vector</double>}.each_with_index do |typename, i|
+        %w[/double /std/vector</double>].each_with_index do |typename, i|
             task.property("p#{i}", typename).doc("property #{i}")
         end
 
@@ -114,10 +117,12 @@ class TC_GenerationTasks < Minitest::Test
         ret = meth.argument("arg1", "/std/string", "first argument")
                   .returns("int32_t")
         assert_same(meth, ret)
-        assert_equal("boost::int32_t methodName(::std::string const & arg1)", meth.signature(true))
+        assert_equal("boost::int32_t methodName(::std::string const & arg1)",
+                     meth.signature(true))
         assert_equal("boost::int32_t(::std::string const &)", meth.signature(false))
         expected_arguments = [
-            ["arg1", project.registry.get("std/string"), "first argument", "::std::string"]
+            ["arg1", project.registry.get("std/string"), "first argument",
+             "::std::string"]
         ]
         assert_equal(expected_arguments, meth.arguments)
     end
@@ -126,10 +131,12 @@ class TC_GenerationTasks < Minitest::Test
         meth = task.operation("method_name")
         meth.argument("arg1", "/std/string", "first argument")
         meth.argument "arg2", "double", "second argument"
-        assert_equal("void method_name(::std::string const & arg1, double arg2)", meth.signature(true))
+        assert_equal("void method_name(::std::string const & arg1, double arg2)",
+                     meth.signature(true))
         assert_equal("void(::std::string const &, double)", meth.signature(false))
         expected_arguments = [
-            ["arg1", project.registry.get("std/string"), "first argument", "::std::string"],
+            ["arg1", project.registry.get("std/string"), "first argument",
+             "::std::string"],
             ["arg2", project.registry.get("double"), "second argument", "double"]
         ]
         assert_equal(expected_arguments, meth.arguments)
@@ -224,15 +231,15 @@ class TC_GenerationTasks < Minitest::Test
     def test_default_values
         project.deffile = File.join(path_to_wc_root, "test.orogen")
         Tempfile.open("orogen_test_default_values") do |io|
-            io.puts <<-EOCODE
-enum TestEnum {
-    VALUE0 = 0,
-    VALUE1 = 1
-};
+            io.puts <<~EOCODE
+                enum TestEnum {
+                    VALUE0 = 0,
+                    VALUE1 = 1
+                };
 
-struct AStruct {
-    int bla;
-};
+                struct AStruct {
+                    int bla;
+                };
             EOCODE
             io.flush
             project.import_types_from io.path
@@ -252,7 +259,7 @@ struct AStruct {
         task.property("enum1", "/TestEnum", "VALUE0")
 
         assert_raises(ArgumentError) { task.property("struct", "/AStruct", "3") }
-        assert_raises(ArgumentError) { task.property("struct", "/AStruct", :bla => 3) }
+        assert_raises(ArgumentError) { task.property("struct", "/AStruct", bla: 3) }
 
         assert_raises(ArgumentError) { task.property("bool", "/int", "VALUE10") }
 

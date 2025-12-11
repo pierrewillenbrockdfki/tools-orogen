@@ -31,7 +31,8 @@ class TC_GenerationTypekit < Minitest::Test
     def test_typekit_load_should_raise_LoadError_if_the_file_does_not_exist # rubocop:disable Naming/MethodName
         project = Project.new
         project.name "test_typekit_load"
-        project.deffile = File.join(path_to_wc_root, "test_typekit_load", "test_typekit_load.orogen")
+        project.deffile = File.join(path_to_wc_root, "test_typekit_load",
+                                    "test_typekit_load.orogen")
 
         # Load a file that does not exist
         assert_raises(LoadError) do
@@ -44,7 +45,8 @@ class TC_GenerationTypekit < Minitest::Test
     def test_typekit_load_should_raise_ArgumentError_if_the_file_has_errors # rubocop:disable Naming/MethodName
         project = Project.new
         project.name "test_typekit_load"
-        project.deffile = File.join(path_to_wc_root, "test_typekit_load", "test_typekit_load.orogen")
+        project.deffile = File.join(path_to_wc_root, "test_typekit_load",
+                                    "test_typekit_load.orogen")
 
         # Load a file with errors
         assert_raises(ArgumentError) do
@@ -67,35 +69,35 @@ class TC_GenerationTypekit < Minitest::Test
             end
 
             if transports.include?("typelib")
-                cmake << <<-EOT
-pkg_check_modules(TYPELIB REQUIRED typelib)
-include_directories(${TYPELIB_INCLUDE_DIRS})
-link_directories(${TYPELIB_LIBRARY_DIRS})
+                cmake << <<~EOT
+                    pkg_check_modules(TYPELIB REQUIRED typelib)
+                    include_directories(${TYPELIB_INCLUDE_DIRS})
+                    link_directories(${TYPELIB_LIBRARY_DIRS})
                 EOT
             end
 
             if transports.include?("corba")
-                cmake << <<-EOT
-find_package(OrocosCORBA REQUIRED COMPONENTS Typekit)
-include_directories(${OrocosCORBA_INCLUDE_DIRS})
-add_definitions(${OrocosCORBA_CFLAGS_OTHER})
-link_directories(${OrocosCORBA_LIBRARY_DIRS})
+                cmake << <<~EOT
+                    find_package(OrocosCORBA REQUIRED COMPONENTS Typekit)
+                    include_directories(${OrocosCORBA_INCLUDE_DIRS})
+                    add_definitions(${OrocosCORBA_CFLAGS_OTHER})
+                    link_directories(${OrocosCORBA_LIBRARY_DIRS})
                 EOT
             end
 
-            cmake << <<-EOF
-link_directories(${CMAKE_INSTALL_PREFIX}/lib/orocos/plugins ${CMAKE_INSTALL_PREFIX}/lib/orocos/types)
+            cmake << <<~EOF
+                link_directories(${CMAKE_INSTALL_PREFIX}/lib/orocos/plugins ${CMAKE_INSTALL_PREFIX}/lib/orocos/types)
 
-ADD_EXECUTABLE(test test.cpp)
-list(APPEND CMAKE_PREFIX_PATH ${OrocosRTT_PREFIX})
-target_link_libraries(test opaque-typekit-${OROCOS_TARGET})
-target_link_libraries(test ${OROCOS_COMPONENT_LIBRARIES})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.orogen/typekit)
-include_directories(${CMAKE_BINARY_DIR}/.orogen/typekit)
-find_package( RTTPlugin COMPONENTS rtt-typekit rtt-marshalling)
-target_link_libraries(test ${RTT_PLUGIN_rtt-marshalling_LIBRARY})
-target_link_libraries(test ${RTT_PLUGIN_rtt-typekit_LIBRARY})
-INSTALL(TARGETS test RUNTIME DESTINATION bin)
+                ADD_EXECUTABLE(test test.cpp)
+                list(APPEND CMAKE_PREFIX_PATH ${OrocosRTT_PREFIX})
+                target_link_libraries(test opaque-typekit-${OROCOS_TARGET})
+                target_link_libraries(test ${OROCOS_COMPONENT_LIBRARIES})
+                include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.orogen/typekit)
+                include_directories(${CMAKE_BINARY_DIR}/.orogen/typekit)
+                find_package( RTTPlugin COMPONENTS rtt-typekit rtt-marshalling)
+                target_link_libraries(test ${RTT_PLUGIN_rtt-marshalling_LIBRARY})
+                target_link_libraries(test ${RTT_PLUGIN_rtt-typekit_LIBRARY})
+                INSTALL(TARGETS test RUNTIME DESTINATION bin)
             EOF
 
             transports.each do |transport_name|
@@ -131,27 +133,27 @@ INSTALL(TARGETS test RUNTIME DESTINATION bin)
                 cmake << "ADD_DEFINITIONS(-DWITH_#{transport_name.upcase})\n"
             end
             if transports.include?("typelib")
-                cmake << <<-EOT
-pkg_check_modules(TYPELIB REQUIRED typelib)
-include_directories(${TYPELIB_INCLUDE_DIRS})
-link_directories(${TYPELIB_LIBRARY_DIRS})
+                cmake << <<~EOT
+                    pkg_check_modules(TYPELIB REQUIRED typelib)
+                    include_directories(${TYPELIB_INCLUDE_DIRS})
+                    link_directories(${TYPELIB_LIBRARY_DIRS})
                 EOT
             end
-            cmake << <<-EOT
-include_directories(${OrocosRTT_INCLUDE_DIRS} ${OrocosCORBA_INCLUDE_DIRS})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.orogen/typekit)
-include_directories(${CMAKE_BINARY_DIR}/.orogen/typekit)
-link_directories(${OrocosCORBA_LIBRARY_DIRS} ${OrocosRTT_LIBRARY_DIRS})
-link_directories(${CMAKE_INSTALL_PREFIX}/lib/orocos/plugins ${CMAKE_INSTALL_PREFIX}/lib/orocos/types)
-list(APPEND CMAKE_PREFIX_PATH ${OrocosRTT_PREFIX})
+            cmake << <<~EOT
+                include_directories(${OrocosRTT_INCLUDE_DIRS} ${OrocosCORBA_INCLUDE_DIRS})
+                include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.orogen/typekit)
+                include_directories(${CMAKE_BINARY_DIR}/.orogen/typekit)
+                link_directories(${OrocosCORBA_LIBRARY_DIRS} ${OrocosRTT_LIBRARY_DIRS})
+                link_directories(${CMAKE_INSTALL_PREFIX}/lib/orocos/plugins ${CMAKE_INSTALL_PREFIX}/lib/orocos/types)
+                list(APPEND CMAKE_PREFIX_PATH ${OrocosRTT_PREFIX})
 
-add_executable(test test.cpp)
-target_link_libraries(test simple-typekit-${OROCOS_TARGET})
-target_link_libraries(test ${OrocosRTT_LIBRARIES})
-find_package( RTTPlugin COMPONENTS rtt-typekit rtt-marshalling)
-target_link_libraries(test ${RTT_PLUGIN_rtt-marshalling_LIBRARY})
-target_link_libraries(test ${RTT_PLUGIN_rtt-typekit_LIBRARY})
-install(TARGETS test RUNTIME DESTINATION bin)
+                add_executable(test test.cpp)
+                target_link_libraries(test simple-typekit-${OROCOS_TARGET})
+                target_link_libraries(test ${OrocosRTT_LIBRARIES})
+                find_package( RTTPlugin COMPONENTS rtt-typekit rtt-marshalling)
+                target_link_libraries(test ${RTT_PLUGIN_rtt-marshalling_LIBRARY})
+                target_link_libraries(test ${RTT_PLUGIN_rtt-typekit_LIBRARY})
+                install(TARGETS test RUNTIME DESTINATION bin)
             EOT
 
             transports.each do |transport_name|
@@ -160,7 +162,8 @@ install(TARGETS test RUNTIME DESTINATION bin)
         end
 
         # The simple.h header should be installed in orocos/typekit/simple.h
-        assert File.exist?(File.join(prefix_directory, "include", "orocos", "simple", "simple.h"))
+        assert File.exist?(File.join(prefix_directory, "include", "orocos", "simple",
+                                     "simple.h"))
 
         # check_output_file('modules/typekit_simple', 'basic.cpf')
         # check_output_file('modules/typekit_simple', 'basic.xml')
@@ -178,7 +181,8 @@ install(TARGETS test RUNTIME DESTINATION bin)
         libprefix = File.join(prefix_directory, "libs/typekit_dependencies_lib")
         FileUtils.mkdir_p File.join(libprefix, "include")
         FileUtils.mkdir_p File.join(libprefix, "lib", "pkgconfig")
-        FileUtils.cp File.join(path_to_data, "modules", "typekit_dependencies_lib", "tkdeps_lib.h"), File.join(libprefix, "include")
+        FileUtils.cp File.join(path_to_data, "modules", "typekit_dependencies_lib", "tkdeps_lib.h"),
+                     File.join(libprefix, "include")
         File.open(File.join(libprefix, "lib", "pkgconfig", "tkdeps_lib.pc"), "w") do |io|
             io << "Name: Blablabla\n"
             io << "Description: Blablabla\n"
@@ -233,17 +237,20 @@ end
 describe OroGen::Gen::RTT_CPP::Typekit do
     describe "#filter_unsupported_types" do
         attr_reader :typekit
+
         before do
             @typekit = OroGen::Gen::RTT_CPP::Typekit.new
         end
 
         it "rejects multi-dimensional arrays" do
-            reg = Typelib::Registry.import File.join(path_to_data, "typekit", "multi_dimensional_array.h")
+            reg = Typelib::Registry.import File.join(path_to_data, "typekit",
+                                                     "multi_dimensional_array.h")
             typekit.filter_unsupported_types(reg)
             assert !reg.include?("/double[2][4]")
         end
         it "rejects std::vector<bool>" do
-            reg = Typelib::Registry.import File.join(path_to_data, "typekit", "std_vector_bool.h")
+            reg = Typelib::Registry.import File.join(path_to_data, "typekit",
+                                                     "std_vector_bool.h")
             typekit.filter_unsupported_types(reg)
             assert !reg.include?("/std/vector</bool>")
         end
@@ -253,12 +260,14 @@ describe OroGen::Gen::RTT_CPP::Typekit do
             assert !reg.include?("/double*")
         end
         it "rejects compounds whose field name does not start with an alphanumeric character" do
-            reg = Typelib::Registry.import File.join(path_to_data, "typekit", "compound_with_field_not_starting_with_alphanumeric_character.h")
+            reg = Typelib::Registry.import File.join(path_to_data, "typekit",
+                                                     "compound_with_field_not_starting_with_alphanumeric_character.h")
             typekit.filter_unsupported_types(reg)
             assert !reg.include?("/Test")
         end
         it "rejects the types that depend on rejected types" do
-            reg = Typelib::Registry.import File.join(path_to_data, "typekit", "rejected_dependencies.h")
+            reg = Typelib::Registry.import File.join(path_to_data, "typekit",
+                                                     "rejected_dependencies.h")
             typekit.filter_unsupported_types(reg)
             assert !reg.include?("/CompoundTest")
             assert !reg.include?("/VectorTest")
@@ -277,7 +286,7 @@ describe OroGen::Gen::RTT_CPP::Typekit do
             flexmock(mocktype).should_receive(:name).and_return(*typenames)
 
             typenames.each_with_index do |typename, index|
-                method_name = mocktype.method_name()
+                method_name = mocktype.method_name
                 expected_method_name = expected[index]
 
                 assert method_name == expected_method_name,

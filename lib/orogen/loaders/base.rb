@@ -355,7 +355,8 @@ module OroGen
                 typename =
                     if type.respond_to?(:name)
                         type.name
-                    else type
+                    else
+                        type
                     end
                 registry.get(typename)
             rescue Typelib::NotFound => e
@@ -611,7 +612,8 @@ module OroGen
                     raise Typelib::NotFound,
                           "#{t} is a null type and there are no typelib marshallers "\
                           "registered in RTT to convert it to a typelib-compatible type"
-                else type
+                else
+                    type
                 end
             end
 

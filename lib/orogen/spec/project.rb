@@ -13,7 +13,8 @@ module OroGen
             # This project's typekit
             # @return [Typekit,nil]
             attr_writer :typekit
-            def typekit(create = nil)
+
+            def typekit(_create = nil)
                 @typekit
             end
             # The tasks known to this project
@@ -25,6 +26,7 @@ module OroGen
             # This project's deployments
             # @return [Hash<String,OroGen::Spec::Deployment>]
             attr_reader :deployers
+
             # If true, default deployments get automatically generated for the
             # tasks in this project
             attr_predicate :define_default_deployments?, true
@@ -92,7 +94,8 @@ module OroGen
             dsl_attribute(:version) do |name|
                 name = name.to_s
                 if name !~ /^\d/
-                    raise ArgumentError, "version strings must start with a number (had: #{name})"
+                    raise ArgumentError,
+                          "version strings must start with a number (had: #{name})"
                 end
 
                 name
@@ -104,16 +107,14 @@ module OroGen
             # The sizes specified through this global method are applied on every port
             # of the provided type
             def max_sizes(typename = nil, *values, &block)
-                if !typename && values.empty?
-                    return @max_sizes
-                end
+                return @max_sizes if !typename && values.empty?
 
                 type  = find_type(typename)
                 # Cannot completely validate the spec, since we may not yet have
                 # the m-types. Do what we can, we'll do full blown validation
                 # later
                 sizes = Port.validate_max_sizes_spec(nil, values)
-                @max_sizes[type.name] ||= Hash.new
+                @max_sizes[type.name] ||= {}
                 @max_sizes[type.name].merge!(sizes, &block)
             end
 
@@ -121,7 +122,7 @@ module OroGen
                 @max_sizes.dup.each do |type, sizes|
                     type = intermediate_type_for(type)
                     sizes = Port.validate_max_sizes_spec(type, sizes)
-                    @max_sizes[type.name] ||= Hash.new
+                    @max_sizes[type.name] ||= {}
                     @max_sizes[type.name].merge!(sizes)
                 end
             end
@@ -146,7 +147,8 @@ module OroGen
             def default_task_superclass
                 if @default_task_superclass.nil?
                     @default_task_superclass = loader.task_model_from_name "RTT::TaskContext"
-                else @default_task_superclass
+                else
+                    @default_task_superclass
                 end
             end
 
@@ -163,22 +165,23 @@ module OroGen
             # Task contexts are represented as instances of TaskContext. See
             # the documentation of that class for more details.
             def task_context(name, subclasses: default_task_superclass, **options, &block)
-                if namespace_disabled?(name.split("::")[0..-2].join("::"))
-                    return
-                end
+                return if namespace_disabled?(name.split("::")[0..-2].join("::"))
 
                 if name == self.name
                     raise ArgumentError, "a task cannot have the same name as the project"
                 elsif name !~ /^(\w+::)*\w+$/
-                    raise ArgumentError, "task names need to be valid C++ identifiers, i.e. contain only alphanumeric characters and _ (got #{name})"
+                    raise ArgumentError,
+                          "task names need to be valid C++ identifiers, i.e. contain only alphanumeric characters and _ (got #{name})"
                 end
 
-                task = external_task_context(name, subclasses: subclasses, **options, &block)
+                task = external_task_context(name, subclasses: subclasses, **options,
+                                             &block)
                 task.extended_state_support
                 self_tasks[task.name] = task
 
                 if !task.abstract? && define_default_deployments?
-                    simple_deployment(Project.default_deployment_name(task.name), task.name)
+                    simple_deployment(Project.default_deployment_name(task.name),
+                                      task.name)
                 end
 
                 task
@@ -188,10 +191,12 @@ module OroGen
             #
             # @option options [Class] type ({TaskContext}) the
             #   class of the created task context
-            def external_task_context(name, subclasses: default_task_superclass, **options, &block)
+            def external_task_context(name, subclasses: default_task_superclass,
+                **options, &block)
                 component_class = options.fetch(:class, TaskContext)
 
-                new_task = component_class.new(self, "#{self.name}::#{name}", subclasses: subclasses)
+                new_task = component_class.new(self, "#{self.name}::#{name}",
+                                               subclasses: subclasses)
                 new_task.instance_eval(&block) if block_given?
                 tasks[new_task.name] = new_task
                 loader.loaded_task_models[new_task.name] = new_task
@@ -207,18 +212,14 @@ module OroGen
             end
 
             def import_types_from(typekit)
-                if typekit.respond_to?(:to_str) && !loader.has_typekit?(typekit)
-                    return
-                end
+                return if typekit.respond_to?(:to_str) && !loader.has_typekit?(typekit)
 
                 using_typekit(typekit)
             end
 
             # (see Loaders::Base#task_model_from_name)
             def task_model_from_name(name)
-                if name !~ /::/
-                    name = "#{self.name}::#{name}"
-                end
+                name = "#{self.name}::#{name}" if name !~ /::/
                 tasks[name] || loader.task_model_from_name(name)
             end
 
@@ -273,7 +274,8 @@ module OroGen
             # for more information.
             def deployment(name, &block) # :yield:
                 if has_deployment?(name)
-                    raise ArgumentError, "there is already a deployment named '#{name}' in this oroGen project"
+                    raise ArgumentError,
+                          "there is already a deployment named '#{name}' in this oroGen project"
                 end
 
                 deployer = Spec::Deployment.new(self, name, &block)
@@ -295,16 +297,12 @@ module OroGen
             #       periodic(0.001)
             def simple_deployment(name, klass)
                 has_logger = loader.has_project?("logger")
-                if has_logger
-                    using_task_library "logger"
-                end
+                using_task_library "logger" if has_logger
 
                 result = nil
                 deployment name do
                     result = task name, klass
-                    if has_logger
-                        add_default_logger
-                    end
+                    add_default_logger if has_logger
                 end
                 result
             end
@@ -321,14 +319,14 @@ module OroGen
                     end
                 end
 
-                unless deployers.empty?
-                    pp.breakable unless self_tasks.empty?
-                    pp.text "  Deployers:"
-                    pp.nest(4) do
-                        pp.breakable
-                        pp.seplist(deployers.values.sort_by(&:name)) do |d|
-                            d.pretty_print(pp)
-                        end
+                return if deployers.empty?
+
+                pp.breakable unless self_tasks.empty?
+                pp.text "  Deployers:"
+                pp.nest(4) do
+                    pp.breakable
+                    pp.seplist(deployers.values.sort_by(&:name)) do |d|
+                        d.pretty_print(pp)
                     end
                 end
             end

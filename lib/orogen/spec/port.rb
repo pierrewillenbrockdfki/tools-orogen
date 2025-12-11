@@ -11,6 +11,7 @@ module OroGen
             attr_reader :name
             # The port type. It can be nil for dynamic ports
             attr_reader :type
+
             # The port type name
             def type_name
                 type.name
@@ -43,7 +44,7 @@ module OroGen
                     direction: (kind_of?(OutputPort) ? "output" : "input"),
                     name: name,
                     type: type.to_h,
-                    doc: (doc || "")
+                    doc: doc || ""
                 ]
             end
 
@@ -56,7 +57,8 @@ module OroGen
             # which realtime communication is not required
             dsl_attribute :keep_last_written_value do |value|
                 unless [nil, true, false, :initial].include?(value)
-                    raise ArgumentError, "keep_last_written_value can only be one of true, false/nil and :initial. Got #{value}"
+                    raise ArgumentError,
+                          "keep_last_written_value can only be one of true, false/nil and :initial. Got #{value}"
                 end
 
                 value
@@ -90,7 +92,7 @@ module OroGen
             end
 
             def pretty_print(pp)
-                pp.text "[#{kind_of?(InputPort) ? "in" : "out"}]#{name}:#{type_name}"
+                pp.text "[#{kind_of?(InputPort) ? 'in' : 'out'}]#{name}:#{type_name}"
             end
 
             # True if this is a dynamic port model, false otherwise
@@ -121,7 +123,7 @@ module OroGen
                 @type = type
 
                 @doc = nil
-                @max_sizes = Hash.new
+                @max_sizes = {}
                 keep_last_written_value :initial
             end
 
@@ -147,7 +149,8 @@ module OroGen
                 end
 
                 unless resolved_type <= Typelib::ContainerType
-                    raise ArgumentError, "#{name} resolves to the #{resolved_type.name} type in #{type.name}, which is not a variable size container"
+                    raise ArgumentError,
+                          "#{name} resolves to the #{resolved_type.name} type in #{type.name}, which is not a variable size container"
                 end
 
                 resolved_type
@@ -169,13 +172,12 @@ module OroGen
                         # Direct call
                         values.to_hash
                     else
-                        raise ArgumentError, "expected a one or two element array or a hash, got #{values.inspect}"
+                        raise ArgumentError,
+                              "expected a one or two element array or a hash, got #{values.inspect}"
                     end
 
                 values.each do |name, value|
-                    if resolved_type
-                        resolve_max_size_path(resolved_type, name)
-                    end
+                    resolve_max_size_path(resolved_type, name) if resolved_type
                     value.to_int
                 end
                 values
@@ -191,12 +193,11 @@ module OroGen
 
                 if sample.kind_of?(Typelib::ContainerType)
                     max_size = max_sizes[path.join(".")]
-                    unless max_size
-                        return false
-                    end
+                    return false unless max_size
 
                     if path.empty? then path = ["[]"]
-                    else path[-1] = "#{path[-1]}[]"
+                    else
+                        path[-1] = "#{path[-1]}[]"
                     end
 
                     element = sample_t.deference.new
@@ -209,7 +210,8 @@ module OroGen
 
                 elsif sample.kind_of?(Typelib::ArrayType)
                     if path.empty? then path = ["[]"]
-                    else path[-1] = "#{path[-1]}[]"
+                    else
+                        path[-1] = "#{path[-1]}[]"
                     end
                     element = sample_t.deference.new
                     unless initialize_max_size_sample(path, element, max_sizes)
@@ -233,7 +235,8 @@ module OroGen
                     return true
                 end
 
-                raise InternalError, "unknown case in initialize_max_size_sample for #{path.join(".")} of type #{sample_t.name}"
+                raise InternalError,
+                      "unknown case in initialize_max_size_sample for #{path.join('.')} of type #{sample_t.name}"
             end
 
             # Returns the maximum size of a marshalled sample coming out of this
@@ -246,9 +249,9 @@ module OroGen
                 sample = type.new
 
                 path = []
-                if initialize_max_size_sample(path, sample, max_sizes)
-                    sample.to_byte_array(:remove_trailing_skips => false).length
-                end
+                return unless initialize_max_size_sample(path, sample, max_sizes)
+
+                sample.to_byte_array(remove_trailing_skips: false).length
             end
 
             ##

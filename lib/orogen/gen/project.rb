@@ -32,9 +32,11 @@ module OroGen
 
             class << self
                 attr_reader :default_type_export_policy
+
                 def default_type_export_policy=(value)
                     unless %i[all used].include?(value)
-                        raise ArgumentError, "the default type export policy must be either 'all' or 'used', got '#{value}'"
+                        raise ArgumentError,
+                              "the default type export policy must be either 'all' or 'used', got '#{value}'"
                     end
 
                     @default_type_export_policy = value
@@ -46,7 +48,7 @@ module OroGen
             class << self
                 attr_accessor :command_line_options
             end
-            @command_line_options = Array.new
+            @command_line_options = []
 
             # Directory in which the generation command (orogen or typegen) has been
             # run
@@ -165,7 +167,8 @@ module OroGen
                 dsl_attribute(:version) do |name|
                     name = name.to_s
                     if name !~ /^\d/
-                        raise ArgumentError, "version strings must start with a number (had: #{name})"
+                        raise ArgumentError,
+                              "version strings must start with a number (had: #{name})"
                     end
 
                     name
@@ -190,23 +193,25 @@ module OroGen
                 # Sets the project's definition file. It has to be an absolute path
                 def deffile=(path)
                     @deffile = path
-                    if typekit && path
-                        base_dir = self.base_dir
-                        typekit.base_dir = base_dir
-                        if base_dir
-                            typekit.user_dir      = File.join(base_dir, "typekit")
-                            typekit.templates_dir = File.join(base_dir, "templates", "typekit")
-                            typekit.automatic_dir = File.join(base_dir, AUTOMATIC_AREA_NAME, "typekit")
-                        end
-                    end
+                    return unless typekit && path
+
+                    base_dir = self.base_dir
+                    typekit.base_dir = base_dir
+                    return unless base_dir
+
+                    typekit.user_dir      = File.join(base_dir, "typekit")
+                    typekit.templates_dir = File.join(base_dir, "templates",
+                                                      "typekit")
+                    typekit.automatic_dir = File.join(base_dir,
+                                                      AUTOMATIC_AREA_NAME, "typekit")
                 end
 
                 # If set, the directory in which the .orogen file is. This is used
                 # to update include paths for instance.
                 def base_dir
-                    if deffile
-                        File.dirname(deffile)
-                    end
+                    return unless deffile
+
+                    File.dirname(deffile)
                 end
 
                 # Create a new Project object by loading the given orogen
@@ -223,9 +228,7 @@ module OroGen
                 # The sizes specified through this global method are applied on every port
                 # of the provided type
                 def max_sizes(typename = nil, *values, &block)
-                    if !typename && values.empty?
-                        return @max_sizes
-                    end
+                    return @max_sizes if !typename && values.empty?
 
                     type  = find_type(typename)
                     # Cannot completely validate the spec, since we may not yet have
@@ -279,14 +282,14 @@ module OroGen
                 attr_reader :loaded_deployments
 
                 def initialize
-                    @tasks = Hash.new
+                    @tasks = {}
                     Project.standard_tasks.each do |t|
                         @tasks[t.name] = t
                     end
                     @orogen_project = true
                     @self_tasks = []
-                    @known_typekits = Hash.new
-                    @known_projects = Hash.new
+                    @known_typekits = {}
+                    @known_projects = {}
 
                     @name    = nil
                     @version = "0.0"
@@ -298,11 +301,11 @@ module OroGen
 
                     @deployers = []
 
-                    @loaded_orogen_projects = Hash.new
-                    @loaded_typekits = Hash.new
+                    @loaded_orogen_projects = {}
+                    @loaded_typekits = {}
                     @enabled_transports = Set.new
-                    @opaques = Array.new
-                    @loaded_deployments = Hash.new
+                    @opaques = []
+                    @loaded_deployments = {}
 
                     # Load orocos-specific types which cannot be used in the
                     # project-defined typekit but can be used literally in argument
@@ -312,15 +315,13 @@ module OroGen
                     Typelib::Registry.add_standard_cxx_types(registry)
                     Project.using_rtt_typekit(self)
 
-                    @max_sizes = Hash.new { |h, k| h[k] = Hash.new }
+                    @max_sizes = Hash.new { |h, k| h[k] = {} }
                     @disabled_namespaces = ["test"]
                 end
 
                 def self.using_rtt_typekit(obj)
                     OroGen::Loaders::RTT.standard_typekits.each do |tk|
-                        if tk.name == "orocos"
-                            tk.extend RTTTypekit
-                        end
+                        tk.extend RTTTypekit if tk.name == "orocos"
                         obj.using_typekit(tk)
                     end
                 end
@@ -363,7 +364,7 @@ module OroGen
                 # custom targets to the build process
                 def additional_plugin_source_dirs
                     dirs = []
-                    tasks.each do |name, task|
+                    tasks.each do |_name, task|
                         task.extensions.each do |ext|
                             next unless ext.respond_to? "each_auto_gen_source_directory"
 
@@ -384,6 +385,7 @@ module OroGen
 
                 class MissingTaskLibrary < LoadError
                     attr_reader :name
+
                     def initialize(name)
                         @name = name
                         super()
@@ -404,14 +406,15 @@ module OroGen
                     end
 
                     pkg = begin
-                              begin
-                                  Utilrb::PkgConfig.new "orogen-project-#{name}"
-                              rescue Utilrb::PkgConfig::NotFound
-                                  Utilrb::PkgConfig.new "#{name}-tasks-#{orocos_target}"
-                              end
-                          rescue Utilrb::PkgConfig::NotFound
-                              raise MissingTaskLibrary.new(name), "no task library named '#{name}' is available"
-                          end
+                        begin
+                            Utilrb::PkgConfig.new "orogen-project-#{name}"
+                        rescue Utilrb::PkgConfig::NotFound
+                            Utilrb::PkgConfig.new "#{name}-tasks-#{orocos_target}"
+                        end
+                    rescue Utilrb::PkgConfig::NotFound
+                        raise MissingTaskLibrary.new(name),
+                              "no task library named '#{name}' is available"
+                    end
 
                     @known_projects[name] = [pkg, pkg.deffile]
                 end
@@ -462,7 +465,8 @@ module OroGen
                         end
 
                     unless task_model
-                        raise ArgumentError, "cannot find a task context model named #{obj}"
+                        raise ArgumentError,
+                              "cannot find a task context model named #{obj}"
                     end
 
                     task_model
@@ -481,14 +485,10 @@ module OroGen
                 # Returns true if there is, in the type registry, a namespace with
                 # the given name.
                 def has_namespace?(name)
-                    if name[0] != "/"
-                        name = "/" + name
-                    end
-                    if name[-1] != "/"
-                        name << "/"
-                    end
+                    name = "/" + name if name[0] != "/"
+                    name << "/" if name[-1] != "/"
 
-                    registry.each(name, :with_aliases => true) do |*_|
+                    registry.each(name, with_aliases: true) do |*_|
                         return true
                     end
                     false
@@ -507,6 +507,7 @@ module OroGen
 
                 class TypeImportError < LoadError
                     attr_reader :name
+
                     def initialize(name)
                         @name = name
                         super()
@@ -528,7 +529,8 @@ module OroGen
                         typekit.load name, true, *args
                     end
                 rescue LoadError
-                    raise TypeImportError.new(name), "cannot find typekit or file #{name}. If this is supposed to be a header, the following include path was used: #{typekit.include_dirs.to_a.join(":")}"
+                    raise TypeImportError.new(name),
+                          "cannot find typekit or file #{name}. If this is supposed to be a header, the following include path was used: #{typekit.include_dirs.to_a.join(':')}"
                 end
 
                 def using_plugin(name)
@@ -559,7 +561,7 @@ module OroGen
                         ours.using_typekit(typekit)
                     end
                     if typekit.respond_to?(:project)
-                        max_sizes.merge!(typekit.project.max_sizes) do |typename, a, b|
+                        max_sizes.merge!(typekit.project.max_sizes) do |_typename, a, b|
                             a.merge(b)
                         end
                     end
@@ -581,9 +583,7 @@ module OroGen
 
                 # Returns the typekit object that defines this type
                 def imported_typekits_for(typename)
-                    if typename.respond_to?(:name)
-                        typename = typename.name
-                    end
+                    typename = typename.name if typename.respond_to?(:name)
                     used_typekits.find_all { |tk| tk.includes?(typename) }
                 end
 
@@ -605,21 +605,25 @@ module OroGen
                 # RTT's typeinfo system
                 def find_interface_type(typename)
                     type = find_type(typename)
-                    if type < Typelib::NullType && define_dummy_types?
-                        return type
-                    end
+                    return type if type < Typelib::NullType && define_dummy_types?
 
                     if type < Typelib::ArrayType
-                        raise ConfigError, "static arrays are not valid interface types. Use an array in a structure or a std::vector"
+                        raise ConfigError,
+                              "static arrays are not valid interface types. Use an array in a structure or a std::vector"
                     end
 
                     typekits = imported_typekits_for(type.name)
                     unless typekits.empty?
-                        OroGen.debug { "#{type.name} is exported by #{typekits.map(&:name).join(", ")}" }
+                        OroGen.debug do
+                            "#{type.name} is exported by #{typekits.map(&:name).join(', ')}"
+                        end
                     end
 
-                    if !typekits.empty? && !typekits.any? { |tk| tk.interface_type?(type.name) }
-                        raise ConfigError, "#{type.name}, defined in the #{typekits.map(&:name).join(", ")} typekits, is never exported"
+                    if !typekits.empty? && !typekits.any? do |tk|
+                        tk.interface_type?(type.name)
+                    end
+                        raise ConfigError,
+                              "#{type.name}, defined in the #{typekits.map(&:name).join(', ')} typekits, is never exported"
                     end
 
                     type
@@ -647,23 +651,25 @@ module OroGen
                                 typename = Typelib::Type.normalize_typename(typename)
                             end
                             found_type = begin
-                                             registry.build(typename)
-                                         rescue Typelib::NotFound
-                                             # We may need to define this type for ourselves, so
-                                             # make the typekit define it ...
-                                             typekit(true).find_type(typename)
-                                             # ... and return our own version of it, not the
-                                             # typekit's one
-                                             registry.build(typename)
-                                         end
+                                registry.build(typename)
+                            rescue Typelib::NotFound
+                                # We may need to define this type for ourselves, so
+                                # make the typekit define it ...
+                                typekit(true).find_type(typename)
+                                # ... and return our own version of it, not the
+                                # typekit's one
+                                registry.build(typename)
+                            end
 
                             if type && found_type != type
-                                raise ArgumentError, "type definition mismatch between #{type} and #{found_type}"
+                                raise ArgumentError,
+                                      "type definition mismatch between #{type} and #{found_type}"
                             end
 
                             found_type
                         else
-                            raise ArgumentError, "expected a type name or a type object, got #{typename}"
+                            raise ArgumentError,
+                                  "expected a type name or a type object, got #{typename}"
                         end
                     end
                 rescue Typelib::NotFound => e
@@ -687,11 +693,13 @@ module OroGen
                         raise ArgumentError, "you must set a name for this project"
                     end
 
-                    if name !~ /^[a-z][a-z0-9\_]+$/
-                        raise ConfigError, "invalid name '#{name}': names must be all lowercase, can contain alphanumeric characters and underscores and start with a letter"
+                    if name !~ /^[a-z][a-z0-9_]+$/
+                        raise ConfigError,
+                              "invalid name '#{name}': names must be all lowercase, can contain alphanumeric characters and underscores and start with a letter"
                     end
                     unless deffile
-                        raise ArgumentError, "there is no orogen file for this project, cannot generate"
+                        raise ArgumentError,
+                              "there is no orogen file for this project, cannot generate"
                     end
 
                     # For consistency in templates
@@ -702,7 +710,8 @@ module OroGen
                     # enable/disable and extended state support.
                     if File.file?(deffile)
                         orogen_file = RTT_CPP.render_template "project.orogen", binding
-                        orogen_file = RTT_CPP.save_automatic(File.basename(deffile), orogen_file)
+                        orogen_file = RTT_CPP.save_automatic(File.basename(deffile),
+                                                             orogen_file)
                         # In any case, touch the target file for the sake of
                         # the check-uptodate targets
                         FileUtils.touch(orogen_file)
@@ -718,10 +727,12 @@ module OroGen
                     #
                     # We have first to remove the way orogen was doing it before,
                     # and then let typekit and task library do what they have to do
-                    fake_install_dir = File.join(project.base_dir, AUTOMATIC_AREA_NAME, project.name)
+                    fake_install_dir = File.join(project.base_dir, AUTOMATIC_AREA_NAME,
+                                                 project.name)
                     if File.symlink?(fake_install_dir)
                         FileUtils.rm_f fake_install_dir
-                        Dir.glob(File.join(project.base_dir, AUTOMATIC_AREA_NAME, "tasks", "*")).each do |path|
+                        Dir.glob(File.join(project.base_dir, AUTOMATIC_AREA_NAME,
+                                           "tasks", "*")).each do |path|
                             FileUtils.rm_f path if File.symlink?(path)
                         end
                     end
@@ -758,8 +769,10 @@ module OroGen
                     unless self_tasks.empty?
                         self_tasks.each(&:generate)
 
-                        deployer = Generation.render_template "tasks", "DeployerComponent.cpp", binding
-                        Generation.save_automatic "tasks", "DeployerComponent.cpp", deployer
+                        deployer = Generation.render_template "tasks",
+                                                              "DeployerComponent.cpp", binding
+                        Generation.save_automatic "tasks", "DeployerComponent.cpp",
+                                                  deployer
                         pc = Generation.render_template "tasks", "tasks.pc", binding
                         Generation.save_automatic "tasks", "#{name}-tasks.pc.in", pc
                     end
@@ -770,16 +783,14 @@ module OroGen
                     doxygen = Generation.render_template "Doxyfile.in", binding
                     Generation.save_user "Doxyfile.in", doxygen
 
-                    unless deployers.empty?
-                        deployers.each(&:generate)
-                    end
+                    deployers.each(&:generate) unless deployers.empty?
 
                     generate_build_system
                     Generation.cleanup_dir(Generation::AUTOMATIC_AREA_NAME)
                     self
                 end
 
-                CMAKE_GENERATED_CONFIG = %w{Base.cmake TaskLib.cmake}
+                CMAKE_GENERATED_CONFIG = %w[Base.cmake TaskLib.cmake]
 
                 # Generate the CMake build system for this project
                 def generate_build_system # :nodoc:
@@ -801,7 +812,8 @@ module OroGen
                     end
 
                     unless self_tasks.empty?
-                        cmake = Generation.render_template "tasks", "CMakeLists.txt", binding
+                        cmake = Generation.render_template "tasks", "CMakeLists.txt",
+                                                           binding
                         Generation.save_user("tasks", "CMakeLists.txt", cmake)
                     end
 
@@ -821,7 +833,9 @@ module OroGen
                     # Get the set of typekits that we directly depend on, because
                     # some of our task classes use their types in their interface.
                     used_typekits = self_tasks.inject(Set.new) do |set, task|
-                        set | task.used_typekits.find_all { |tk| !tk.virtual? }.map(&:name)
+                        set | task.used_typekits.find_all { |tk|
+                            !tk.virtual?
+                        }.map(&:name)
                     end
 
                     used_libraries = self.used_libraries.map(&:name)
@@ -832,7 +846,8 @@ module OroGen
                     # indirect dependencies in type_includes, remove duplicates
                     # and finish
                     used_typekits.map! do |name|
-                        build_dep = BuildDependency.new("#{name}_TYPEKIT", "#{name}-typekit-#{orocos_target}")
+                        build_dep = BuildDependency.new("#{name}_TYPEKIT",
+                                                        "#{name}-typekit-#{orocos_target}")
                         build_dep.in_context("core", "include")
                         build_dep.in_context("core", "link")
                     end
@@ -853,7 +868,9 @@ module OroGen
 
                     var_names = result.map(&:var_name).to_set
                     typekit&.dependencies&.each do |dep|
-                        next if !dep.in_context?("core") || var_names.include?(dep.var_name)
+                        if !dep.in_context?("core") || var_names.include?(dep.var_name)
+                            next
+                        end
 
                         dep = dep.dup
                         dep.remove_context("link")
@@ -873,9 +890,7 @@ module OroGen
                         raise ArgumentError, "name should be a string"
                     end
 
-                    if typekit && !typekit.name
-                        typekit.name = new
-                    end
+                    typekit.name = new if typekit && !typekit.name
                     new
                 end
 
@@ -906,8 +921,9 @@ module OroGen
                 #
                 #   using_library 'name', :typekit => false
                 #
-                def using_library(name, options = Hash.new)
-                    options = Kernel.validate_options options, :typekit => true, :typekit_link => nil
+                def using_library(name, options = {})
+                    options = Kernel.validate_options options, typekit: true,
+                                                               typekit_link: nil
                     pkg = Utilrb::PkgConfig.new(name)
                     used_libraries << pkg
 
@@ -916,19 +932,19 @@ module OroGen
                     end
 
                     do_typekit = options[:typekit] || options[:typekit_link]
-                    if do_typekit
-                        typekit_libraries << [pkg, options[:typekit_link]]
-                    end
+                    typekit_libraries << [pkg, options[:typekit_link]] if do_typekit
 
                     if typekit && do_typekit
-                        typekit.using_library(pkg, :link => options[:typekit_link])
+                        typekit.using_library(pkg, link: options[:typekit_link])
                     end
                     self
                 rescue Utilrb::PkgConfig::NotFound => e
                     if e.name == name
-                        raise ConfigError, "no library named '#{name}' available", e.backtrace
+                        raise ConfigError, "no library named '#{name}' available",
+                              e.backtrace
                     else
-                        raise ConfigError, "a dependency of library '#{name}' is not available: library '#{e.name}' could not be found", e.backtrace
+                        raise ConfigError,
+                              "a dependency of library '#{name}' is not available: library '#{e.name}' could not be found", e.backtrace
                     end
                 end
 
@@ -942,7 +958,8 @@ module OroGen
                         loaded_typekits[name] = ImportedTypekit
                                                 .from_raw_data(self, name, pkg, registry_xml, typelist_txt)
                     rescue Exception => e
-                        raise e, "failed to import typekit #{name}: #{e.message}", e.backtrace
+                        raise e, "failed to import typekit #{name}: #{e.message}",
+                              e.backtrace
                     end
                 end
 
@@ -963,9 +980,7 @@ module OroGen
                 # The second form returns a Typekit object if one is defined, and
                 # nil otherwise.
                 def typekit(create = nil, &block)
-                    if create.nil?
-                        create = true if block_given?
-                    end
+                    create = true if create.nil? && block_given?
                     if create && !@typekit
                         @typekit = Typekit.new(self)
 
@@ -975,8 +990,10 @@ module OroGen
                         typekit.type_export_policy RTT_CPP.default_type_export_policy
                         if base_dir
                             typekit.user_dir      = File.join(base_dir, "typekit")
-                            typekit.templates_dir = File.join(base_dir, "templates", "typekit")
-                            typekit.automatic_dir = File.join(base_dir, AUTOMATIC_AREA_NAME, "typekit")
+                            typekit.templates_dir = File.join(base_dir, "templates",
+                                                              "typekit")
+                            typekit.automatic_dir = File.join(base_dir,
+                                                              AUTOMATIC_AREA_NAME, "typekit")
                         end
 
                         @enabled_transports.each do |t|
@@ -988,7 +1005,7 @@ module OroGen
                                                .flatten.to_set
 
                         typekit_libraries.each do |tk, do_link|
-                            typekit.using_library(tk, :link => do_link)
+                            typekit.using_library(tk, link: do_link)
                         end
 
                         # Initialize the typekit's imported_types registry
@@ -1012,7 +1029,8 @@ module OroGen
                 # See Typekit#type_export_policy
                 def type_export_policy(*args)
                     unless typekit(false)
-                        raise ConfigError, "using type_export_policy here makes no sense since no new types are defined in this project"
+                        raise ConfigError,
+                              "using type_export_policy here makes no sense since no new types are defined in this project"
                     end
 
                     typekit(false).type_export_policy(*args)
@@ -1026,25 +1044,26 @@ module OroGen
                 # See Typekit#export_types
                 def export_types(*args)
                     unless typekit(false)
-                        raise ConfigError, "using export_types here makes no sense since no new types are defined in this project"
+                        raise ConfigError,
+                              "using export_types here makes no sense since no new types are defined in this project"
                     end
 
                     typekit(false).export_types(*args)
                 end
 
-                attr_writer :extended_states
-
                 def extended_states?
                     if @extended_states.nil? then Generation.extended_states_enabled?
-                    else @extended_states
+                    else
+                        @extended_states
                     end
                 end
 
-                attr_writer :define_default_deployments
+                attr_writer :extended_states, :define_default_deployments
 
                 def define_default_deployments?
                     if @define_default_deployments.nil? then Generation.define_default_deployments_enabled?
-                    else @define_default_deployments
+                    else
+                        @define_default_deployments
                     end
                 end
 
@@ -1061,14 +1080,14 @@ module OroGen
                 # Task contexts are represented as instances of TaskContext. See
                 # the documentation of that class for more details.
                 def task_context(name, **options, &block)
-                    if namespace_disabled?(name.split("::")[0..-2].join("::"))
-                        return nil
-                    end
+                    return nil if namespace_disabled?(name.split("::")[0..-2].join("::"))
 
                     if name == self.name
-                        raise ArgumentError, "a task cannot have the same name as the project"
+                        raise ArgumentError,
+                              "a task cannot have the same name as the project"
                     elsif name !~ /^(\w+::)*\w+$/
-                        raise ArgumentError, "task names need to be valid C++ identifiers, i.e. contain only alphanumeric characters and _ (got #{name})"
+                        raise ArgumentError,
+                              "task names need to be valid C++ identifiers, i.e. contain only alphanumeric characters and _ (got #{name})"
                     end
 
                     name = OroGen.verify_valid_identifier(name)
@@ -1078,18 +1097,14 @@ module OroGen
 
                     task = external_task_context(name, **options) do
                         Spec::TaskContext.apply_default_extensions(self)
-                        if block_given?
-                            instance_eval(&block)
-                        end
+                        instance_eval(&block) if block_given?
                     end
-                    if extended_states?
-                        task.extended_state_support
-                    end
+                    task.extended_state_support if extended_states?
 
-                    unless task.abstract?
-                        if define_default_deployments? && enabled_transports.include?("corba")
-                            simple_deployment(Generation.default_deployment_name(task.name), task.name)
-                        end
+                    if !task.abstract? && define_default_deployments? && enabled_transports.include?("corba")
+                        simple_deployment(
+                            Generation.default_deployment_name(task.name), task.name
+                        )
                     end
 
                     task
@@ -1103,7 +1118,8 @@ module OroGen
                     if has_task_context?(name)
                         raise ArgumentError, "there is already a #{name} task"
                     elsif has_namespace?(name)
-                        raise ArgumentError, "there is already a namespace called #{name}, this is not supported by orogen"
+                        raise ArgumentError,
+                              "there is already a namespace called #{name}, this is not supported by orogen"
                     end
 
                     klass = options.fetch(:class, Spec::TaskContext)
@@ -1195,20 +1211,22 @@ module OroGen
                                  .flatten.uniq
                     all_stdcxxflags = all_cflags.select { |flag| flag =~ /^-std=.*\+\+/ }
                     maximum_cxx_standard args.flatten,
-                                         (all_stdcxxflags.map { |flag| flag.sub(/^-std=/, "") })
+                                         (all_stdcxxflags.map do |flag|
+                                             flag.sub(/^-std=/, "")
+                                         end)
                 end
 
                 # Loads the oroGen project +name+
                 #
                 # The returned value is an instance of ImportedProject
-                def load_orogen_project(name, options = Hash.new)
+                def load_orogen_project(name, options = {})
                     name = name.to_str
                     if (lib = loaded_orogen_projects[name])
                         return lib
                     end
 
                     options = Kernel.validate_options options,
-                                                      :define_dummy_types => false
+                                                      define_dummy_types: false
 
                     pkg, description = orogen_project_description(name)
 
@@ -1240,7 +1258,8 @@ module OroGen
                     tasklib = load_orogen_project(pkg.project_name)
                     deployment = tasklib.deployers.find { |d| d.name == name }
                     unless deployment
-                        raise InternalError, "cannot find the deployment called #{name} in #{tasklib}. Candidates were #{tasklib.deployers.map(&:name).join(", ")}"
+                        raise InternalError,
+                              "cannot find the deployment called #{name} in #{tasklib}. Candidates were #{tasklib.deployers.map(&:name).join(', ')}"
                     end
 
                     loaded_deployments[name] = deployment
@@ -1256,15 +1275,15 @@ module OroGen
                 #
                 # The returned value is an instance of ImportedProject
                 def load_task_library(name, options)
-                    unless options.kind_of?(Hash)
-                        options = { :validate => options }
-                    end
+                    options = { validate: options } unless options.kind_of?(Hash)
                     options = Kernel.validate_options options,
-                                                      :validate => true, :define_dummy_types => false
+                                                      validate: true, define_dummy_types: false
 
-                    tasklib = load_orogen_project(name, :define_dummy_types => options[:define_dummy_types])
+                    tasklib = load_orogen_project(name,
+                                                  define_dummy_types: options[:define_dummy_types])
                     if options[:validate] && tasklib.self_tasks.empty?
-                        raise ConfigError, "#{name} is an oroGen project, but it defines no task library"
+                        raise ConfigError,
+                              "#{name} is an oroGen project, but it defines no task library"
                     end
 
                     tasklib
@@ -1281,13 +1300,15 @@ module OroGen
                     end
 
                     pkg = begin
-                              orogen_typekit_package(name)
-                          rescue Utilrb::PkgConfig::NotFound
-                              raise ConfigError, "no typekit named '#{name}' is available (could not load pkg-config info #{name}-typekit-#{orocos_target} in #{ENV['PKG_CONFIG_PATH']})"
-                          end
+                        orogen_typekit_package(name)
+                    rescue Utilrb::PkgConfig::NotFound
+                        raise ConfigError,
+                              "no typekit named '#{name}' is available (could not load pkg-config info #{name}-typekit-#{orocos_target} in #{ENV['PKG_CONFIG_PATH']})"
+                    end
 
                     registry = File.read(pkg.type_registry)
-                    typelist = File.join(File.dirname(pkg.type_registry), "#{name}.typelist")
+                    typelist = File.join(File.dirname(pkg.type_registry),
+                                         "#{name}.typelist")
                     typelist = File.read(typelist)
                     @known_typekits[name] = [pkg, registry, typelist]
                 end
@@ -1343,12 +1364,10 @@ module OroGen
                 #   PREFIX/lib/pkgconfig
                 #
                 # must be listed in the PKG_CONFIG_PATH environment variable.
-                def using_task_library(name, options = Hash.new)
-                    unless options.kind_of?(Hash)
-                        options = { :validate => options }
-                    end
+                def using_task_library(name, options = {})
+                    options = { validate: options } unless options.kind_of?(Hash)
                     options = Kernel.validate_options options,
-                                                      :validate => true, :define_dummy_types => false
+                                                      validate: true, define_dummy_types: false
 
                     if name.respond_to?(:to_str)
                         if File.file?(name) && File.extname(name) == ".orogen"
@@ -1369,17 +1388,15 @@ module OroGen
                         tasks[t.name] = t
                     end
                     used_task_libraries << tasklib
-                    typekit&.using_library(tasklib.tasklib_pkg_name, :link => false)
+                    typekit&.using_library(tasklib.tasklib_pkg_name, link: false)
 
-                    max_sizes.merge!(tasklib.max_sizes) do |typename, a, b|
+                    max_sizes.merge!(tasklib.max_sizes) do |_typename, a, b|
                         a.merge(b)
                     end
 
                     # Now import the typekits the project also imports, and the
                     # tasklib's own typekit if there is one
-                    if tasklib.typekit
-                        using_typekit tasklib.typekit
-                    end
+                    using_typekit tasklib.typekit if tasklib.typekit
                     tasklib.used_typekits.each do |tk|
                         using_typekit tk
                     end
@@ -1419,7 +1436,8 @@ module OroGen
                     typekit&.perform_pending_loads
 
                     if has_deployment?(name)
-                        raise ArgumentError, "there is already a deployment named '#{name}' in this oroGen project"
+                        raise ArgumentError,
+                              "there is already a deployment named '#{name}' in this oroGen project"
                     end
 
                     deployer = RTT_CPP::Deployment.new(self, name, &block)
@@ -1464,18 +1482,14 @@ module OroGen
                 #   simple_deployment("task", "Task").
                 #       periodic(0.001)
                 def simple_deployment(name, klass)
-                    if has_task_library?("logger")
-                        using_task_library "logger"
-                    end
+                    using_task_library "logger" if has_task_library?("logger")
 
                     project = self.project
 
                     result = nil
                     deployment name do
                         result = task name, klass
-                        if project.has_task_library?("logger")
-                            add_default_logger
-                        end
+                        add_default_logger if project.has_task_library?("logger")
                     end
                     result
                 end
@@ -1497,14 +1511,14 @@ module OroGen
                         end
                     end
 
-                    unless deployers.empty?
-                        pp.breakable unless self_tasks.empty?
-                        pp.text "  Deployers:"
-                        pp.nest(4) do
-                            pp.breakable
-                            pp.seplist(deployers) do |d|
-                                d.pretty_print(pp)
-                            end
+                    return if deployers.empty?
+
+                    pp.breakable unless self_tasks.empty?
+                    pp.text "  Deployers:"
+                    pp.nest(4) do
+                        pp.breakable
+                        pp.seplist(deployers) do |d|
+                            d.pretty_print(pp)
                         end
                     end
                 end
@@ -1518,7 +1532,8 @@ module OroGen
 
                 def eval(name, file_contents, verbose = true)
                     self.deffile = "#{name}.orogen"
-                    Kernel.eval_dsl_file_content(deffile, file_contents, self, [OroGen, RTT_CPP], verbose)
+                    Kernel.eval_dsl_file_content(deffile, file_contents, self,
+                                                 [OroGen, RTT_CPP], verbose)
                     self
                 end
 

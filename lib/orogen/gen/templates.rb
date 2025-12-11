@@ -5,7 +5,7 @@ module OroGen
         module RTT_CPP # rubocop:disable Naming/ClassAndModuleCamelCase
             AUTOMATIC_AREA_NAME = ".orogen"
 
-            @templates = Hash.new
+            @templates = {}
             class << self
                 # The set of templates already loaded as a path => ERB object hash
                 attr_reader :templates
@@ -51,14 +51,26 @@ module OroGen
 
                     templates[path] =
                         begin
-                            ERB.new(File.read(template_file), nil, "<>",
-                                    path.join("_").downcase.gsub(%r{[\/\.-]}, "_"))
+                            erb(File.read(template_file),
+                                trim_mode: "<>",
+                                eoutvar: path.join("_").downcase.gsub(%r{[/.-]}, "_"))
                         rescue Errno::ENOENT
                             raise ArgumentError, "template #{File.join(*path)} "\
                                                  "does not exist"
                         end
                     templates[path].filename = template_file
                     templates[path]
+                end
+            end
+
+            # Backward-compatible handling of ERB as far as Ruby 2.5
+            #
+            # Defined to avoid warnings on ruby 2.7+
+            def self.erb(template, trim_mode: nil, eoutvar: "_erbout")
+                if RUBY_VERSION >= "2.7.0"
+                    ERB.new(template, trim_mode: trim_mode, eoutvar: eoutvar)
+                else
+                    ERB.new(template, nil, trim_mode, eoutvar)
                 end
             end
 

@@ -7,16 +7,8 @@ module OroGen
         #
         # It needs to be given a page object which has basic services
         class Type
-            attr_reader :page
-            attr_reader :type
-
-            attr_reader :intermediate_type
-            attr_reader :ruby_type
-            attr_reader :produced_by
-            attr_reader :consumed_by
-            attr_reader :displayed_by
-            attr_reader :template
-            attr_reader :definition_template
+            attr_reader :page, :type, :intermediate_type, :ruby_type, :produced_by,
+                        :consumed_by, :displayed_by, :template, :definition_template
 
             def initialize(page)
                 @page = page
@@ -24,7 +16,8 @@ module OroGen
                 template_path = File.join(File.dirname(__FILE__), "type_fragment.page")
                 @template = ERB.new(File.read(template_path))
                 template.filename = template_path
-                fragment_path = File.join(File.dirname(__FILE__), "type_definition_fragment.page")
+                fragment_path = File.join(File.dirname(__FILE__),
+                                          "type_definition_fragment.page")
                 @definition_template = ERB.new(File.read(fragment_path))
                 definition_template.filename = fragment_path
 
@@ -42,7 +35,7 @@ module OroGen
                 return unless recursive
 
                 if type < Typelib::CompoundType
-                    type.enum_for(:each_field).any? do |field_name, field_type|
+                    type.enum_for(:each_field).any? do |_field_name, field_type|
                         has_convertions?(field_type, false)
                     end
                 elsif type < Typelib::EnumType
@@ -56,15 +49,15 @@ module OroGen
 
             def render_convertion_spec(base_type, convertion)
                 if (spec = convertion[0])
-                    if spec == Array
-                        # The base type is most likely an array or a container.
-                        # Display the element type as well ...
-                        if base_type.respond_to?(:deference)
-                            if (subconv = base_type.deference.convertion_to_ruby)
-                                return "Array(#{render_convertion_spec(base_type.deference, subconv)})"
-                            else
-                                return "Array(#{page.link_to(base_type.deference)})"
-                            end
+                    # The base type is most likely an array or a container.
+                    # Display the element type as well ...
+                    if (spec == Array) && base_type.respond_to?(:deference)
+                        if (subconv = base_type.deference.convertion_to_ruby)
+                            return "Array(#{render_convertion_spec(
+                                base_type.deference, subconv
+                            )})"
+                        else
+                            return "Array(#{page.link_to(base_type.deference)})"
                         end
                     end
                     convertion[0].name
@@ -82,9 +75,12 @@ module OroGen
                     result << "<ul class=\"body-header-list\">"
                     type.each_field do |field_name, field_type|
                         if (convertion = field_type.convertion_to_ruby)
-                            result << page.render_item(field_name, render_convertion_spec(field_type, convertion))
+                            result << page.render_item(field_name,
+                                                       render_convertion_spec(field_type,
+                                                                              convertion))
                         else
-                            result << page.render_item(field_name, page.link_to(field_type))
+                            result << page.render_item(field_name,
+                                                       page.link_to(field_type))
                         end
                     end
                     result << "</ul>"
@@ -130,20 +126,18 @@ module OroGen
                 end
             end
 
-            def render(type, options = Hash.new)
-                _, push_options = Kernel.filter_options options, :external_objects => nil
+            def render(type, options = {})
+                _, push_options = Kernel.filter_options options, external_objects: nil
                 @type = type
                 base = self.type
                 typekit = begin Orocos.load_typekit_for(base, false)
-                          rescue Orocos::TypekitTypeNotFound
-                          end
+                rescue Orocos::TypekitTypeNotFound
+                end
 
                 @intermediate_type, @ruby_type = nil
                 if base.contains_opaques?
                     @intermediate_type = typekit.intermediate_type_for(type)
-                    if has_convertions?(intermediate_type)
-                        @ruby_type = intermediate_type
-                    end
+                    @ruby_type = intermediate_type if has_convertions?(intermediate_type)
                 elsif has_convertions?(base)
                     @ruby_type = base
                 end

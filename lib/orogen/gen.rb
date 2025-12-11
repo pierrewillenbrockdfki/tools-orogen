@@ -81,7 +81,7 @@ OroGen::Gen::RTT_CPP::Deployment.register_global_initializer(
         link_directories(${QT_LIBRARY_DIR})
         set(CMAKE_AUTOMOC true)
     QT_DEPLOYMENT_CMAKE
-    deployment_cmake: <<~QT_DEPLOYMENT_CMAKE,
+    deployment_cmake: <<~QT_DEPLOYMENT_CMAKE
         find_package(Qt4 REQUIRED)
         include(${QT_USE_FILE})
         include_directories(${QT_INCLUDE_DIR})
