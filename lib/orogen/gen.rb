@@ -120,14 +120,42 @@ OroGen::Gen::RTT_CPP::Deployment.register_global_initializer(
         QApplication::instance()->exit();
         pthread_join(qt_thread, NULL);
     QT_EXIT_CODE
+    # The test for the single other Qt version only needs to happen once,
+    # but once we add a third option, at least two of three must check.
     tasks_cmake: <<~QT_TASKS_CMAKE,
         find_package(Qt5 REQUIRED Core)
         set(CMAKE_AUTOMOC true)
         set_target_properties(${<%= project.name.upcase %>_TASKLIB_NAME} PROPERTIES AUTOMOC ON)
+
+        <% if project.self_tasks.any? { |t| t.uses_qt? } %>
+        message(STATUS "Tasks requiring Qt4:"
+        <% project.self_tasks.select { |t| t.uses_qt? }.each do |t| %>
+        " <%= t.name %>"
+        <% end %>)
+        message(STATUS "Tasks requiring Qt5:"
+        <% project.self_tasks.select { |t| t.uses_qt5? }.each do |t| %>
+        " <%= t.name %>"
+        <% end %>)
+        message(FATAL_ERROR "Linking tasks using both Qt4 and Qt5 into the same task library is not possible.")
+        <% end %>
     QT_TASKS_CMAKE
+    #Note that the check here needs to check all tasks in the task library,
+    #any of them will pull in the given Qt version.
     deployment_cmake: <<~QT_DEPLOYMENT_CMAKE,
         find_package(Qt5 REQUIRED Core Widgets)
         target_link_libraries(<%= deployer.name %> Qt5::Core Qt5::Widgets)
         set(CMAKE_AUTOMOC true)
+
+        <% if deployer.task_activities.any? { |a| a.task_model.project.self_tasks.any? { |t| t.uses_qt? } } %>
+        message(STATUS "Tasks with task libraries requiring Qt4:"
+        <% deployer.task_activities.select { |a| a.task_model.project.self_tasks.any? { |t| t.uses_qt? } }.each do |a| %>
+        " <%= a.task_model.name %>"
+        <% end %>)
+        message(STATUS "Tasks with task libraries requiring Qt5:"
+        <% deployer.task_activities.select { |a| a.task_model.project.self_tasks.any? { |t| t.uses_qt? } }.each do |a| %>
+        " <%= t.name %>"
+        <% end %>)
+        message(FATAL_ERROR "Linking tasks using both Qt4 and Qt5 into the same deployment is not possible.")
+        <% end %>
     QT_DEPLOYMENT_CMAKE
 )
