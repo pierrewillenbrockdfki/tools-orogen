@@ -29,8 +29,5 @@ Libs: <%= libs.to_a.sort.join(" ") %> -L${libdir} -l<%= project.name %>-tasks-<%
   cflags = project.tasklib_used_task_libraries.map { |tk| tk.pkg.raw_cflags if tk.pkg }.flatten.compact.to_set
   cflags |= project.used_typekits.map { |tk| tk.pkg.raw_cflags if tk.pkg }.flatten.compact.to_set
 %>
-<% if project.extended_state_support? %>
-<%   cflags << "-I${includedir}/#{project.name}/types" %>
-<% end %>
 Cflags: -I${includedir} <%= cflags.to_a.join(" ") %>
 

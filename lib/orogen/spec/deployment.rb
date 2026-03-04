@@ -218,7 +218,16 @@ module OroGen
 
                 @explicit_activity =
                     if task_model.default_activity
-                        send(*task_model.default_activity)
+                        # in ruby2.6, an empty kw hash will be passed as a positional
+                        # empty hash to a function that does not take keyword arguments
+                        if task_model.default_activity[2].empty?
+                            send(task_model.default_activity[0],
+                                *task_model.default_activity[1])
+                        else
+                            send(task_model.default_activity[0],
+                                *task_model.default_activity[1],
+                                **task_model.default_activity[2])
+                        end
                         task_model.required_activity?
                     end
 

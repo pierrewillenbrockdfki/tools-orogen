@@ -8,8 +8,14 @@ module OroGen
                 @spec = spec
             end
 
-            def method_missing(m, *args, &block)
-                @spec.send(m, *args, &block)
+            def method_missing(m, *args, **kw, &block)
+                # in ruby2.6, an empty kw hash will be passed as a positional
+                # empty hash to a function that does not take keyword arguments
+                if kw.empty?
+                    @spec.send(m, *args, &block)
+                else
+                    @spec.send(m, *args, **kw, &block)
+                end
             end
 
             def __normalize_typename(type)
@@ -122,6 +128,8 @@ module OroGen
             def method_missing(m, *args, **kw, &block)
                 return unless @spec.respond_to?(m)
 
+                # in ruby2.6, an empty kw hash will be passed as a positional
+                # empty hash to a function that does not take keyword arguments
                 if kw.empty?
                     @spec.send(m, *args, &block)
                 else
